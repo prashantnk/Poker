@@ -3,5 +3,8 @@
     "@supabase/supabase-js": "^2.95.3",
     "lodash": "^4.17.23",
     "pg": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.23"
   }
 }
