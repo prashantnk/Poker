@@ -1,57 +1,88 @@
--- Run this manually on the SQL editor on the supabase client 
+-- ============================================================
+-- 1. DATABASE SCHEMA (Idempotent Creation)
+-- ============================================================
 
-
--- 1. Reset (Just in case)
-DROP TABLE IF EXISTS players;
-DROP TABLE IF EXISTS rooms;
-
--- 2. Create the ROOMS table
-CREATE TABLE rooms (
+-- Create ROOMS table if it doesn't exist
+CREATE TABLE IF NOT EXISTS rooms (
   id text PRIMARY KEY,
-  stage text DEFAULT 'waiting', -- waiting, preflop, flop, turn, river
+  stage text DEFAULT 'waiting',
   community_cards jsonb,
   deck jsonb,
+  shuffle_factor int DEFAULT 100,
+  qr_url text,
   created_at timestamptz DEFAULT now()
 );
 
--- 3. Create the PLAYERS table
-CREATE TABLE players (
+-- Create PLAYERS table if it doesn't exist
+CREATE TABLE IF NOT EXISTS players (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   room_id text REFERENCES rooms(id) ON DELETE CASCADE,
   name text,
   hand jsonb,
+  status text DEFAULT 'active',
+  is_revealed boolean DEFAULT false,
   created_at timestamptz DEFAULT now()
 );
 
--- 4. Enable Realtime (Crucial for the game to work!)
-ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
-ALTER PUBLICATION supabase_realtime ADD TABLE players;
+-- (Safety Net) Ensure columns exist if table was created previously without them
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS shuffle_factor int DEFAULT 100;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS qr_url text;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS status text DEFAULT 'active';
+ALTER TABLE players ADD COLUMN IF NOT EXISTS is_revealed boolean DEFAULT false;
 
--- 5. Open Access (So you don't need login/auth to play)
+
+-- ============================================================
+-- 2. REALTIME SUBSCRIPTION
+-- ============================================================
+
+-- We wrap this in a block to catch "already exists" errors gracefully
+DO $$
+BEGIN
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
+  EXCEPTION WHEN duplicate_object THEN NULL; -- Ignore if already added
+  END;
+
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE players;
+  EXCEPTION WHEN duplicate_object THEN NULL; -- Ignore if already added
+  END;
+END $$;
+
+
+-- ============================================================
+-- 3. ROW LEVEL SECURITY (RLS) - TABLES
+-- ============================================================
+
+-- Rooms
 ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access Rooms" ON rooms; -- Drop old to avoid duplicates
 CREATE POLICY "Public Access Rooms" ON rooms FOR ALL USING (true) WITH CHECK (true);
 
+-- Players
 ALTER TABLE players ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Access Players" ON players; -- Drop old to avoid duplicates
 CREATE POLICY "Public Access Players" ON players FOR ALL USING (true) WITH CHECK (true);
 
-ALTER TABLE players ADD COLUMN status text DEFAULT 'active';
-ALTER TABLE players ADD COLUMN is_revealed boolean DEFAULT false;
-ALTER TABLE rooms ADD COLUMN shuffle_factor int DEFAULT 100;
 
-/*
-Create Storage Bucket:
+-- ============================================================
+-- 4. STORAGE SETUP (Idempotent)
+-- ============================================================
 
-Go to Supabase Dashboard -> Storage.
+-- Create 'qrcodes' bucket if it doesn't exist
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('qrcodes', 'qrcodes', true)
+ON CONFLICT (id) DO NOTHING;
 
-Click "New Bucket".
+-- Storage Policies (Drop & Recreate to ensure correctness)
+DROP POLICY IF EXISTS "Allow public uploads" ON storage.objects;
+CREATE POLICY "Allow public uploads"
+ON storage.objects
+FOR INSERT
+WITH CHECK ( bucket_id = 'qrcodes' );
 
-Name it qrcodes.
-
-Make it Public (so players can see the image).
-
-Save.
-
-*/
-ALTER TABLE rooms ADD COLUMN qr_url text;
-
-
+DROP POLICY IF EXISTS "Allow public viewing" ON storage.objects;
+CREATE POLICY "Allow public viewing"
+ON storage.objects
+FOR SELECT
+USING ( bucket_id = 'qrcodes' );
