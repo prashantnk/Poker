@@ -342,6 +342,7 @@ export default function PokerPage() {
         localStorage.removeItem('poker_player_room');
         setMyId(''); setRoomCode(''); setView('menu');
         window.location.reload(); 
+        fetchGameState();
     }
   };
 
@@ -390,6 +391,7 @@ export default function PokerPage() {
           onEndGame={handleEndGame} 
           onShuffleChange={handleShuffleChange} 
           logs={logs} 
+          onRefresh={fetchGameState} // <--- PASS THIS PROP
         />
       )}
 

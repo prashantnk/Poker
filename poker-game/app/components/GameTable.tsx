@@ -12,6 +12,7 @@ type GameTableProps = {
   onNextStage: () => void;
   onEndGame: () => void;
   onShuffleChange: (val: number) => void;
+  onRefresh: () => void; // <--- NEW PROP
   logs: LogMessage[];
 };
 
@@ -23,6 +24,7 @@ export default function GameTable({
   onNextStage, 
   onEndGame, 
   onShuffleChange, 
+  onRefresh, // <--- Destructure it
   logs 
 }: GameTableProps) {
   const stage = roomData?.stage || 'waiting';
@@ -35,13 +37,10 @@ export default function GameTable({
   const starterName = players[starterIndex]?.name || "Waiting...";
   const roundCount = roomData?.round_count || 1; 
 
-  // --- SORTING LOGIC: Active players first, Folded last ---
+  // Sorting
   const sortedPlayers = [...players].sort((a, b) => {
-    // If a is folded and b is not, a goes last (return 1)
     if (a.status === 'folded' && b.status !== 'folded') return 1;
-    // If b is folded and a is not, b goes last (return -1)
     if (a.status !== 'folded' && b.status === 'folded') return -1;
-    // Otherwise keep original order
     return 0;
   });
   
@@ -49,6 +48,7 @@ export default function GameTable({
   const [isQrZoomed, setIsQrZoomed] = useState(false);
   const [zoomedPlayer, setZoomedPlayer] = useState<any>(null);
   const [showWinnerModal, setShowWinnerModal] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false); // Local sync state
 
   useEffect(() => {
     if (winners.length > 0 && isShowdown) {
@@ -76,6 +76,12 @@ export default function GameTable({
 
   const handleQrChange = async (url: string) => {
     await supabase.from('rooms').update({ qr_url: url }).eq('id', roomCode);
+  };
+
+  const handleManualRefresh = async () => {
+    setIsSyncing(true);
+    await onRefresh();
+    setTimeout(() => setIsSyncing(false), 500);
   };
 
   return (
@@ -156,7 +162,23 @@ export default function GameTable({
             </div>
          </div>
          <span className="text-2xl md:text-4xl font-bold uppercase tracking-widest text-yellow-500 animate-pulse">{stage}</span>
-         <button onClick={onEndGame} className="text-red-400 text-sm border-2 border-red-900 px-4 py-2 rounded-xl font-bold hover:bg-red-900/20">END GAME</button>
+         
+         {/* --- CONTROLS AREA --- */}
+         <div className="flex gap-4">
+             {/* SYNC BUTTON */}
+             <button 
+                onClick={handleManualRefresh} 
+                className="text-emerald-500 text-xs border border-emerald-900 px-4 py-2 rounded-xl font-bold hover:bg-emerald-900/20 active:scale-95 transition-all flex items-center gap-2"
+                disabled={isSyncing}
+             >
+                <span className={isSyncing ? "animate-spin" : ""}>⟳</span>
+                {isSyncing ? "SYNCING" : "SYNC"}
+             </button>
+
+             <button onClick={onEndGame} className="text-red-400 text-xs border border-red-900 px-4 py-2 rounded-xl font-bold hover:bg-red-900/20 active:scale-95 transition-all">
+                END
+             </button>
+         </div>
       </div>
       
       <div className="flex-none h-[35vh] w-full flex justify-center items-center my-2 relative z-10">
@@ -184,15 +206,12 @@ export default function GameTable({
         )}
       </div>
       
-      {/* PLAYERS (SORTED) */}
       <div className="flex-1 w-full min-h-0 overflow-y-auto px-4 pb-4 mt-2">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-8 mx-auto max-w-[1800px]">
           {sortedPlayers.map((p, i) => {
              const showCards = isShowdown && p.is_revealed;
              const isActive = p.status !== 'folded';
              const isWinner = winners.some(w => w.id === p.id);
-             // Note: starterIndex refers to the original players array, so we should visually find the starter by Name/ID if sorting messed up index 
-             // Simpler approach: Just check if this p's name matches starterName calculated above.
              const isStarter = p.name === starterName;
              
              return (
@@ -227,7 +246,6 @@ export default function GameTable({
         </div>
       </div>
 
-      {/* FIXED SCANNER PANEL */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
            {roomData?.qr_url && (
              <button onClick={() => setIsQrZoomed(true)} className="bg-white p-2 rounded-2xl border-4 border-gray-200 shadow-2xl animate-in slide-in-from-bottom-10 duration-500 origin-bottom-right hover:scale-105 transition-transform">
