@@ -86,3 +86,13 @@ CREATE POLICY "Allow public viewing"
 ON storage.objects
 FOR SELECT
 USING ( bucket_id = 'qrcodes' );
+
+/*
+
+If want to clean up data from the tables: 
+
+
+DROP table players;
+DROP table rooms;
+
+*/
