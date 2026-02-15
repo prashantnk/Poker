@@ -16,7 +16,7 @@ const SUITS = ['♠', '♥', '♣', '♦'];
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
 // --- HELPERS ---
-const getDeck = (randomness = 100) => {
+const getDeckOld = (randomness = 100) => {
   const deck = VALUES.flatMap(value => 
     SUITS.map(suit => ({
       suit, value, 
@@ -31,6 +31,39 @@ const getDeck = (randomness = 100) => {
     const idx2 = Math.floor(Math.random() * deck.length);
     [deck[idx1], deck[idx2]] = [deck[idx2], deck[idx1]];
   }
+  return deck;
+};
+
+const getDeck = (randomness = 100) => {
+  // 1. Create the base deck
+  const deck = VALUES.flatMap(value => 
+    SUITS.map(suit => ({
+      suit, value, 
+      color: (suit === '♥' || suit === '♦') ? 'text-red-600' : 'text-black',
+      id: `${value}${suit}`
+    }))
+  );
+
+  // 2. The "Rigged" Logic (If fairness < 100%)
+  // If randomness is 0, we return the deck mostly sorted (Predictable)
+  // If randomness is 50, we only shuffle half the deck
+  // This logic stays the same to support your "Rigged" feature
+  if (randomness === 0) return deck;
+
+  // 3. THE FIX: Fisher-Yates Shuffle Algorithm
+  // We only shuffle elements up to the "fairness" point to keep the rigged feature working
+  // If randomness is 100 (Fair), we shuffle the entire deck (i > 0).
+  
+  const limit = deck.length - Math.floor(deck.length * (randomness / 100));
+  
+  for (let i = deck.length - 1; i > limit; i--) {
+    // Pick a random remaining element
+    const j = Math.floor(Math.random() * (i + 1));
+    
+    // Swap it with the current element
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  
   return deck;
 };
 
@@ -291,7 +324,32 @@ export default function PokerPage() {
       if(next === 'preflop') {
         const deck = [...roomData.deck];
         const active = players.filter(p => p.status !== 'folded');
-        const pUpdates = active.map(p => supabase.from('players').update({ hand: [deck.pop(), deck.pop()] }).eq('id', p.id));
+        
+        // --- NEW DEALING LOGIC ---
+        
+        // 1. Pull the top cards needed for this round (e.g. 4 players = 8 cards)
+        // If rigged, these are the Aces, Kings, Queens...
+        const cardsNeeded = active.length * 2;
+        const roundCards: any[] = [];
+        
+        for (let i = 0; i < cardsNeeded; i++) {
+            if (deck.length > 0) roundCards.push(deck.pop());
+        }
+
+        // 2. Shuffle ONLY these specific cards
+        // This ensures the "Good Cards" are distributed randomly among players
+        // instead of Player 1 always getting the best ones.
+        for (let i = roundCards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [roundCards[i], roundCards[j]] = [roundCards[j], roundCards[i]];
+        }
+
+        // 3. Deal them out
+        const pUpdates = active.map(p => {
+             // Give 2 cards to each player from the shuffled "Good Pile"
+             const hand = [roundCards.pop(), roundCards.pop()];
+             return supabase.from('players').update({ hand }).eq('id', p.id);
+        });
         
         updates.deck = deck;
         updates.winners = []; 
