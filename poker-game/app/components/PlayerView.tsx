@@ -18,7 +18,10 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
   const isFolded = me?.status === 'folded';
 
   return (
-    <div className="min-h-screen bg-neutral-900 flex flex-col p-4 relative text-white overflow-y-auto">
+    // 1. min-h-[100.1vh]: Forces browser to allow "Pull to Refresh" gesture
+    // 2. overflow-y-auto: Enables scrolling if content is too tall
+    <div className="min-h-[100.1vh] bg-neutral-900 flex flex-col p-4 relative text-white overflow-y-auto">
+      
       {/* HEADER */}
       <div className="flex justify-between items-center mb-2 shrink-0">
          <div className="text-gray-400 text-xs font-mono">ROOM: {roomCode}</div>
@@ -53,7 +56,7 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
 
             <button 
               className={`w-full py-6 rounded-2xl font-bold text-2xl shadow-lg touch-none select-none transition-colors ${forceShow ? 'bg-gray-800 text-gray-500' : 'bg-blue-600 active:bg-blue-700 text-white'}`}
-              // Optimization: Only disable touch gestures on THIS button
+              // Keep touch-none HERE to prevent scrolling while holding the peek button
               onPointerDown={() => setIsPeeking(true)}
               onPointerUp={() => setIsPeeking(false)}
               onPointerLeave={() => setIsPeeking(false)}
@@ -68,7 +71,8 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
       </div>
       
       {/* CONTROLS */}
-      <div className="mt-6 flex flex-col gap-3 shrink-0 pb-20">
+      {/* Added pb-12 to ensure buttons are not hidden behind phone home bars */}
+      <div className="mt-6 flex flex-col gap-3 shrink-0 pb-12">
          <div className="flex justify-between items-center bg-neutral-800 p-4 rounded-xl">
             <span className="font-bold text-sm text-gray-300">Keep Cards Open</span>
             <button onClick={() => setForceShow(!forceShow)} className={`w-14 h-8 rounded-full relative transition-colors ${forceShow ? 'bg-green-500' : 'bg-gray-600'}`}>
