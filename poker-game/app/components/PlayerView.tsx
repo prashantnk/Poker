@@ -18,24 +18,23 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
   const isFolded = me?.status === 'folded';
 
   return (
-    <div className="min-h-screen bg-neutral-900 flex flex-col p-4 relative text-white touch-none">
+    <div className="min-h-screen bg-neutral-900 flex flex-col p-4 relative text-white overflow-y-auto">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-2">
+      <div className="flex justify-between items-center mb-2 shrink-0">
          <div className="text-gray-400 text-xs font-mono">ROOM: {roomCode}</div>
          <button onClick={onLeave} className="text-red-500 text-[10px] border border-red-900 px-2 py-1 rounded active:bg-red-900/20">LEAVE</button>
       </div>
 
-      <div className="text-center mb-4">
+      <div className="text-center mb-4 shrink-0">
          <div className="text-yellow-500 font-bold text-3xl">{me?.name}</div>
          <div className="text-gray-500 text-xs uppercase tracking-widest">{isFolded ? 'FOLDED - WATCHING' : stage}</div>
       </div>
 
       {/* CARD AREA */}
-      <div className="flex-1 flex flex-col justify-center items-center gap-6 relative min-h-0 w-full">
+      <div className="flex-1 flex flex-col justify-center items-center gap-6 relative min-h-[300px] w-full shrink-0">
         {hasCards ? (
           <>
             <div className={`flex justify-center gap-4 w-full h-full items-center transition-opacity duration-300 ${isFolded ? 'opacity-40' : ''}`}>
-               {/* Fixed Aspect Ratio Container */}
                <div className="w-[45%] max-w-[350px] aspect-[2.5/3.5] relative">
                  <Card card={me.hand[0]} hidden={!isPeeking && !forceShow} size="lg" />
                </div>
@@ -44,7 +43,6 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
                </div>
             </div>
             
-            {/* Folded Overlay */}
             {isFolded && (
                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="text-red-600 text-5xl md:text-8xl font-black border-[8px] md:border-[12px] border-red-600 p-4 md:p-8 rounded-3xl -rotate-12 tracking-widest opacity-80 mix-blend-screen bg-black/40">
@@ -55,6 +53,7 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
 
             <button 
               className={`w-full py-6 rounded-2xl font-bold text-2xl shadow-lg touch-none select-none transition-colors ${forceShow ? 'bg-gray-800 text-gray-500' : 'bg-blue-600 active:bg-blue-700 text-white'}`}
+              // Optimization: Only disable touch gestures on THIS button
               onPointerDown={() => setIsPeeking(true)}
               onPointerUp={() => setIsPeeking(false)}
               onPointerLeave={() => setIsPeeking(false)}
@@ -69,7 +68,7 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
       </div>
       
       {/* CONTROLS */}
-      <div className="mt-6 flex flex-col gap-3 shrink-0 pb-safe">
+      <div className="mt-6 flex flex-col gap-3 shrink-0 pb-20">
          <div className="flex justify-between items-center bg-neutral-800 p-4 rounded-xl">
             <span className="font-bold text-sm text-gray-300">Keep Cards Open</span>
             <button onClick={() => setForceShow(!forceShow)} className={`w-14 h-8 rounded-full relative transition-colors ${forceShow ? 'bg-green-500' : 'bg-gray-600'}`}>
