@@ -2,7 +2,6 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-// @ts-ignore
 import _ from 'lodash';
 
 // --- UTILS ---
@@ -22,12 +21,12 @@ const getDeck = () => {
 // --- COMPONENT: CARD ---
 const Card = ({ card, hidden }) => {
   if (hidden || !card) return (
-    <div className="w-14 h-20 md:w-20 md:h-28 bg-blue-900 rounded-lg border-2 border-white m-1 flex items-center justify-center shadow-lg">
+    <div className="w-14 h-20 md:w-20 md:h-28 bg-blue-900 rounded-lg border-2 border-white m-1 flex items-center justify-center shadow-lg transform transition-transform hover:scale-105">
       <span className="text-2xl">🐉</span>
     </div>
   );
   return (
-    <div className={`w-14 h-20 md:w-20 md:h-28 bg-white rounded-lg border border-gray-300 m-1 flex flex-col items-center justify-center shadow-lg ${card.color}`}>
+    <div className={`w-14 h-20 md:w-20 md:h-28 bg-white rounded-lg border border-gray-300 m-1 flex flex-col items-center justify-center shadow-lg ${card.color} transform transition-transform hover:scale-105`}>
       <span className="font-bold text-xl md:text-3xl">{card.value}</span>
       <span className="text-2xl md:text-4xl">{card.suit}</span>
     </div>
@@ -37,11 +36,30 @@ const Card = ({ card, hidden }) => {
 export default function Poker() {
   const [view, setView] = useState('menu');
   const [roomCode, setRoomCode] = useState('');
-  const [playerName, setPlayerName] = useState(''); // <--- NEW: Store Player Name
+  const [playerName, setPlayerName] = useState('');
   const [roomData, setRoomData] = useState(null);
   const [players, setPlayers] = useState([]);
   const [myId, setMyId] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // --- NEW: RESTORE SESSION ON LOAD ---
+  useEffect(() => {
+    // 1. Check if Host
+    const savedRoom = localStorage.getItem('poker_host_room');
+    if (savedRoom) {
+      setRoomCode(savedRoom);
+      setView('table');
+    }
+
+    // 2. Check if Player
+    const savedPlayerId = localStorage.getItem('poker_player_id');
+    const savedPlayerRoom = localStorage.getItem('poker_player_room');
+    if (savedPlayerId && savedPlayerRoom) {
+      setMyId(savedPlayerId);
+      setRoomCode(savedPlayerRoom);
+      setView('player');
+    }
+  }, []);
 
   // --- HOST FUNCTIONS ---
   const createTable = async () => {
@@ -53,35 +71,63 @@ export default function Poker() {
       id: code, stage: 'waiting', community_cards: deck.slice(0, 5), deck: deck.slice(5)
     });
 
-    if (error) alert("Error: " + error.message);
-    else {
+    if (error) {
+      alert("Error: " + error.message);
+    } else {
+      // SAVE SESSION
+      localStorage.setItem('poker_host_room', code);
+      // Clear any player session just in case
+      localStorage.removeItem('poker_player_id');
+      
       setRoomCode(code);
       setView('table');
     }
     setLoading(false);
   };
 
+  const leaveTable = () => {
+    if(confirm("End the game?")) {
+        localStorage.removeItem('poker_host_room');
+        setView('menu');
+        setRoomCode('');
+    }
+  }
+
   // --- PLAYER FUNCTIONS ---
   const joinGame = async () => {
-    if (!roomCode) return alert("Please enter a Room Code!");
-    if (!playerName) return alert("Please enter your Name!"); // <--- NEW CHECK
-
+    if (!roomCode || !playerName) return alert("Enter Code and Name!");
     setLoading(true);
 
     const { data, error } = await supabase.from('players').insert({
       room_id: roomCode, 
-      name: playerName, // <--- NEW: Use the input name
+      name: playerName, 
       hand: []
     }).select().single();
     
     if (error) {
       alert("Could not join. Check Room Code.");
     } else {
+      // SAVE SESSION
+      localStorage.setItem('poker_player_id', data.id);
+      localStorage.setItem('poker_player_room', roomCode);
+      // Clear host session
+      localStorage.removeItem('poker_host_room');
+
       setMyId(data.id);
       setView('player');
     }
     setLoading(false);
   };
+  
+  const leaveGame = () => {
+      if(confirm("Leave the table?")) {
+          localStorage.removeItem('poker_player_id');
+          localStorage.removeItem('poker_player_room');
+          setView('menu');
+          setPlayerName('');
+          setRoomCode('');
+      }
+  }
 
   // --- REALTIME ---
   useEffect(() => {
@@ -90,6 +136,15 @@ export default function Poker() {
     const fetchData = async () => {
        const { data: r } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
        if(r) setRoomData(r);
+       else {
+           // Room might be deleted or invalid
+           if(view === 'table') { 
+               alert("Room expired!"); 
+               localStorage.removeItem('poker_host_room'); 
+               setView('menu'); 
+           }
+       }
+
        const { data: p } = await supabase.from('players').select('*').eq('room_id', roomCode);
        if(p) setPlayers(p);
     };
@@ -139,59 +194,48 @@ export default function Poker() {
         POKER
       </h1>
       
-      {/* HOST BUTTON */}
       <div className="w-full max-w-sm">
         <button onClick={createTable} disabled={loading} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all mb-8">
           {loading ? 'Starting...' : 'HOST NEW TABLE'}
         </button>
 
-        {/* JOIN SECTION */}
         <div className="flex flex-col gap-3 bg-neutral-800 p-6 rounded-2xl border border-neutral-700">
           <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Join a Game</h3>
-          
-          {/* NAME INPUT */}
           <input 
-            className="w-full p-4 bg-neutral-900 text-white rounded-xl font-bold text-lg border border-neutral-600 focus:border-yellow-500 outline-none placeholder-gray-600"
-            placeholder="Your Name (e.g. 007)" 
+            className="w-full p-4 bg-neutral-900 text-white rounded-xl font-bold text-lg border border-neutral-600 focus:border-yellow-500 outline-none"
+            placeholder="Your Name" 
+            value={playerName}
             onChange={e => setPlayerName(e.target.value)} 
           />
-
           <div className="flex gap-2">
-            {/* ROOM CODE INPUT */}
             <input 
-              className="flex-1 p-4 bg-neutral-900 text-white rounded-xl text-center font-mono text-xl border border-neutral-600 focus:border-yellow-500 outline-none placeholder-gray-600"
-              placeholder="1234" 
+              className="flex-1 p-4 bg-neutral-900 text-white rounded-xl text-center font-mono text-xl border border-neutral-600 focus:border-yellow-500 outline-none"
+              placeholder="Code" 
+              value={roomCode}
               onChange={e => setRoomCode(e.target.value)} 
             />
-            
-            {/* JOIN BUTTON */}
-            <button onClick={joinGame} disabled={loading} className="px-8 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95">
-              GO
-            </button>
+            <button onClick={joinGame} disabled={loading} className="px-8 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg">GO</button>
           </div>
         </div>
       </div>
     </div>
   );
 
-  // TABLE VIEW (HOST)
+  // TABLE VIEW
   if (view === 'table') {
     const stage = roomData?.stage || 'waiting';
     const show = stage === 'waiting' || stage === 'preflop' ? 0 : stage === 'flop' ? 3 : stage === 'turn' ? 4 : 5;
     
     return (
       <div className="min-h-screen bg-[#2e4738] flex flex-col items-center p-6 text-white overflow-hidden">
-        <div className="w-full flex justify-between max-w-4xl mb-4 font-mono text-emerald-200/50">
+        <div className="w-full flex justify-between items-center max-w-4xl mb-4 font-mono text-emerald-200/50">
            <span>ROOM: {roomCode}</span>
-           <span>STAGE: {stage.toUpperCase()}</span>
+           <button onClick={leaveTable} className="text-red-400 text-xs hover:text-white border border-red-900 px-2 py-1 rounded">END GAME</button>
         </div>
         
-        {/* TABLE */}
         <div className="relative w-full max-w-4xl aspect-[2/1] bg-[#355e45] rounded-[100px] md:rounded-[200px] border-[12px] md:border-[16px] border-[#4a3b32] shadow-2xl flex items-center justify-center mb-8">
            <div className="flex gap-2 md:gap-4">
-             {(roomData?.community_cards || []).map((c, i) => (
-                <Card key={i} card={c} hidden={i >= show} />
-             ))}
+             {(roomData?.community_cards || []).map((c, i) => <Card key={i} card={c} hidden={i >= show} />)}
            </div>
         </div>
         
@@ -199,14 +243,11 @@ export default function Poker() {
            {stage === 'river' ? 'NEW ROUND ↺' : 'DEAL / REVEAL ➔'}
         </button>
         
-        {/* PLAYERS GRID */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
           {players.map(p => (
              <div key={p.id} className="bg-black/30 p-4 rounded-xl text-center backdrop-blur-sm border border-white/5">
                <div className="font-bold text-lg text-emerald-100 truncate">{p.name}</div>
-               <div className="text-sm text-emerald-100/50 mt-1">
-                 {p.hand?.length ? 'Cards: ✅' : 'Waiting...'}
-               </div>
+               <div className="text-sm text-emerald-100/50 mt-1">{p.hand?.length ? 'Cards: ✅' : 'Waiting...'}</div>
              </div>
           ))}
         </div>
@@ -214,16 +255,16 @@ export default function Poker() {
     );
   }
 
-  // PLAYER VIEW (HAND)
+  // PLAYER VIEW
   if (view === 'player') {
     const me = players.find(p => p.id === myId);
     return (
       <div className="min-h-screen bg-neutral-900 flex flex-col items-center justify-center p-4 relative">
+        <button onClick={leaveGame} className="absolute top-4 right-4 text-red-500 text-xs uppercase tracking-widest border border-red-900 px-3 py-2 rounded hover:bg-red-900/20">Leave Table</button>
+        
         <div className="text-center mb-12">
            <h2 className="text-gray-500 text-sm tracking-[0.2em] mb-2 uppercase">Your Hand</h2>
-           <div className="text-yellow-500 font-bold text-3xl">
-             {me?.name}
-           </div>
+           <div className="text-yellow-500 font-bold text-3xl">{me?.name || 'Loading...'}</div>
         </div>
 
         <div className="flex justify-center gap-4 mb-16">
@@ -233,9 +274,7 @@ export default function Poker() {
                <Card card={me.hand[1]} />
              </>
           ) : (
-             <div className="text-white/30 text-xl font-mono animate-pulse">
-               Waiting for dealer...
-             </div>
+             <div className="text-white/30 text-xl font-mono animate-pulse">Waiting for dealer...</div>
           )}
         </div>
         
