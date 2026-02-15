@@ -89,6 +89,8 @@ USING ( bucket_id = 'qrcodes' );
 
 -- Add a column to store the calculated winners
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS winners jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS dealer_index integer DEFAULT 0;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS round_count integer DEFAULT 1;
 
 /*
 

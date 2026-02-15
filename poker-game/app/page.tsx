@@ -81,28 +81,32 @@ export default function PokerPage() {
     }
   }, []);
 
+  // --- 1. DEFINE FETCH LOGIC HERE (So it's accessible everywhere) ---
+  const fetchGameState = async () => {
+    if (!roomCode) return;
+    // Fetch Room
+    const { data: r } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
+    if (r) {
+      setRoomData(r);
+      if (r.winners) setWinners(r.winners);
+    } else {
+      // If room not found, maybe end game?
+      // handleGameEnded(); // Optional: careful with auto-ending
+    }
+
+    // Fetch Players
+    const { data: p } = await supabase.from('players').select('*').eq('room_id', roomCode);
+    if (p) {
+      setPlayers(_.uniqBy(p, 'id'));
+    }
+  };
+
   // --- REALTIME SYNC ---
   useEffect(() => {
     if (view === 'menu' || !roomCode) return;
 
-    // 1. Initial Fetch
-    const fetchInitialData = async () => {
-      const { data: r } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
-      if (r) { 
-        setRoomData(r); 
-        // Sync winners from DB on load
-        if (r.winners) setWinners(r.winners);
-      } else {
-        handleGameEnded();
-        return;
-      }
-
-      const { data: p } = await supabase.from('players').select('*').eq('room_id', roomCode);
-      if (p) { 
-        setPlayers(_.uniqBy(p, 'id')); 
-      }
-    };
-    fetchInitialData();
+    // Call the function we defined above
+    fetchGameState();
 
     // 2. Subscription
     const channelName = `room_${roomCode}`;
@@ -208,7 +212,6 @@ export default function PokerPage() {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     const deck = getDeck(100); 
     
-    // ERROR HANDLING ADDED
     const { error } = await supabase.from('rooms').insert({
       id: code, 
       stage: 'waiting', 
@@ -216,12 +219,14 @@ export default function PokerPage() {
       deck: deck.slice(5), 
       shuffle_factor: 100, 
       qr_url: qrUrl,
-      winners: [] 
+      winners: [],
+      dealer_index: 0,
+      round_count: 1
     });
 
     if (error) {
         console.error("Host Creation Failed:", error);
-        alert(`Failed to start game: ${error.message}. (Check console for details)`);
+        alert(`Failed to start game: ${error.message}.`);
     } else {
         localStorage.setItem('poker_host_room', code);
         localStorage.removeItem('poker_player_id');
@@ -289,7 +294,7 @@ export default function PokerPage() {
         const pUpdates = active.map(p => supabase.from('players').update({ hand: [deck.pop(), deck.pop()] }).eq('id', p.id));
         
         updates.deck = deck;
-        updates.winners = []; // Clear previous winners
+        updates.winners = []; 
         
         await Promise.all(pUpdates);
       } 
@@ -305,12 +310,16 @@ export default function PokerPage() {
       // RESET
       const currentFactor = roomData.shuffle_factor ?? 100;
       const d = getDeck(currentFactor);
+      const nextDealer = (roomData.dealer_index || 0) + 1;
+      const nextRound = (roomData.round_count || 1) + 1;
       
       await supabase.from('rooms').update({ 
         stage: 'waiting', 
         community_cards: d.slice(0,5), 
         deck: d.slice(5),
-        winners: [] 
+        winners: [],
+        dealer_index: nextDealer,
+        round_count: nextRound
       }).eq('id', roomCode);
 
       const reset = players.map(p => supabase.from('players').update({ hand: [], status: 'active', is_revealed: false }).eq('id', p.id));
@@ -389,9 +398,11 @@ export default function PokerPage() {
           roomCode={roomCode} 
           me={me} 
           stage={roomData?.stage} 
+          roundCount={roomData?.round_count || 1} 
           onFold={async () => await supabase.from('players').update({ status: 'folded' }).eq('id', myId)}
           onToggleReveal={async (curr) => await supabase.from('players').update({ is_revealed: !curr }).eq('id', myId)}
           onLeave={handleLeaveGame} 
+          onRefresh={fetchGameState} // Now this is defined!
         />
       )}
     </>
