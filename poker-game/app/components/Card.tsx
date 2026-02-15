@@ -11,42 +11,55 @@ type CardProps = {
   card?: CardType;
   hidden?: boolean;
   className?: string;
-  size?: 'sm' | 'md' | 'lg'; // sm: Grid, md: Community, lg: Player Phone
+  size?: 'sm' | 'md' | 'lg';
 };
 
 export default function Card({ card, hidden, className = "", size = 'md' }: CardProps) {
-  // Define sizing classes based on the 'size' prop
-  const sizes = {
-    sm: { 
-      value: 'text-lg md:text-xl', 
-      suit: 'text-xl md:text-2xl', 
-      icon: 'text-xl' 
-    },
-    md: { 
-      value: 'text-2xl md:text-4xl', 
-      suit: 'text-4xl md:text-6xl', 
-      icon: 'text-3xl' 
-    },
-    lg: { 
-      // MASSIVE text for the phone view
-      value: 'text-[5rem] leading-none md:text-[8rem]', 
-      suit: 'text-[6rem] leading-none md:text-[9rem]', 
-      icon: 'text-6xl md:text-8xl' 
-    }
-  };
+  
+  // Refined borders: thicker for the 'md' size since we scale it up on the table
+  const borderClass = size === 'lg' 
+    ? 'border-[6px] rounded-[16px]'  // Zoom View
+    : size === 'md' 
+      ? 'border-[3px] rounded-[10px]' // Table View (Community/Player)
+      : 'border-[1px] rounded-[4px]'; // Small View
 
-  const s = sizes[size];
-
+  // --- HIDDEN STATE (Card Back) ---
   if (hidden || !card) return (
-    <div className={`aspect-[2/3] bg-blue-900 rounded-xl border-2 md:border-4 border-white shadow-xl flex items-center justify-center ${className}`}>
-      <span className={s.icon}>🐉</span>
+    <div className={`aspect-[2.5/3.5] relative shadow-2xl ${className} overflow-hidden rounded-[5%]`}>
+       {/* Real Bicycle Card Back Image */}
+       <img 
+         src="https://deckofcardsapi.com/static/img/back.png" 
+         alt="Card Back"
+         className="w-full h-full object-cover"
+       />
     </div>
   );
 
+  // --- IMAGE URL LOGIC ---
+  const getCardImage = () => {
+    // 1. Map Suit to API Code (S, H, D, C)
+    const suitCode = 
+      card.suit === '♠' ? 'S' : 
+      card.suit === '♥' ? 'H' : 
+      card.suit === '♣' ? 'C' : 'D';
+
+    // 2. Map Value to API Code (0, A, K, Q, J, 2-9)
+    // The API uses '0' for the number 10
+    const valueCode = card.value === '10' ? '0' : card.value;
+
+    return `https://deckofcardsapi.com/static/img/${valueCode}${suitCode}.png`;
+  };
+
   return (
-    <div className={`aspect-[2/3] bg-white rounded-xl border border-gray-300 flex flex-col items-center justify-center shadow-xl ${card.color} ${className}`}>
-      <span className={`font-bold ${s.value}`}>{card.value}</span>
-      <span className={s.suit}>{card.suit}</span>
+    <div className={`aspect-[2.5/3.5] relative shadow-2xl overflow-hidden bg-white ${borderClass} border-gray-300 ${className}`}>
+      <img 
+        src={getCardImage()} 
+        alt={`${card.value} of ${card.suit}`}
+        className="w-full h-full object-contain pointer-events-none"
+      />
+      
+      {/* Subtle Inner Shadow for Depth */}
+      <div className="absolute inset-0 shadow-[inset_0_0_10px_rgba(0,0,0,0.1)] pointer-events-none rounded-lg"></div>
     </div>
   );
 }
