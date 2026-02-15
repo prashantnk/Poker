@@ -1,10 +1,16 @@
 // @ts-nocheck
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import _ from 'lodash';
 
-// --- UTILS ---
+// FIX: Changed imports to relative paths to match your folder structure
+import GameMenu from './components/GameMenu';
+import GameTable from './components/GameTable';
+import PlayerView from './components/PlayerView';
+import { LogMessage } from './components/GameNotifications';
+
+const APP_NAME = "Poker: Zero or One";
 const SUITS = ['♠', '♥', '♣', '♦'];
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
@@ -18,40 +24,30 @@ const getDeck = () => {
   ));
 };
 
-// --- COMPONENT: CARD ---
-const Card = ({ card, hidden }) => {
-  if (hidden || !card) return (
-    <div className="w-14 h-20 md:w-20 md:h-28 bg-blue-900 rounded-lg border-2 border-white m-1 flex items-center justify-center shadow-lg transform transition-transform hover:scale-105">
-      <span className="text-2xl">🐉</span>
-    </div>
-  );
-  return (
-    <div className={`w-14 h-20 md:w-20 md:h-28 bg-white rounded-lg border border-gray-300 m-1 flex flex-col items-center justify-center shadow-lg ${card.color} transform transition-transform hover:scale-105`}>
-      <span className="font-bold text-xl md:text-3xl">{card.value}</span>
-      <span className="text-2xl md:text-4xl">{card.suit}</span>
-    </div>
-  );
-};
-
-export default function Poker() {
-  const [view, setView] = useState('menu');
+export default function PokerPage() {
+  const [view, setView] = useState<'menu' | 'table' | 'player'>('menu');
   const [roomCode, setRoomCode] = useState('');
-  const [playerName, setPlayerName] = useState('');
-  const [roomData, setRoomData] = useState(null);
-  const [players, setPlayers] = useState([]);
+  const [roomData, setRoomData] = useState<any>(null);
+  const [players, setPlayers] = useState<any[]>([]);
   const [myId, setMyId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState<LogMessage[]>([]);
+  const playersRef = useRef<any[]>([]);
 
-  // --- NEW: RESTORE SESSION ON LOAD ---
+  // --- LOGGING HELPER ---
+  const addLog = (text: string, type: 'info' | 'alert' | 'success' = 'info') => {
+    const id = Math.random().toString(36).substring(7);
+    setLogs(prev => [...prev, { id, text, type }]);
+    setTimeout(() => setLogs(prev => prev.filter(l => l.id !== id)), 5000);
+  };
+
+  useEffect(() => { playersRef.current = players; }, [players]);
+
+  // --- STARTUP CHECKS ---
   useEffect(() => {
-    // 1. Check if Host
-    const savedRoom = localStorage.getItem('poker_host_room');
-    if (savedRoom) {
-      setRoomCode(savedRoom);
-      setView('table');
-    }
+    const savedHost = localStorage.getItem('poker_host_room');
+    if (savedHost) { recoverHost(savedHost); }
 
-    // 2. Check if Player
     const savedPlayerId = localStorage.getItem('poker_player_id');
     const savedPlayerRoom = localStorage.getItem('poker_player_room');
     if (savedPlayerId && savedPlayerRoom) {
@@ -61,230 +57,141 @@ export default function Poker() {
     }
   }, []);
 
-  // --- HOST FUNCTIONS ---
-  const createTable = async () => {
+  // --- REALTIME SYNC ---
+  useEffect(() => {
+    if (view === 'menu' || !roomCode) return;
+
+    const init = async () => {
+      const { data: r } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
+      if(r) setRoomData(r); else if(view === 'table') { localStorage.removeItem('poker_host_room'); setView('menu'); }
+      const { data: p } = await supabase.from('players').select('*').eq('room_id', roomCode);
+      if(p) setPlayers(p);
+    };
+    init();
+
+    const ch = supabase.channel('game')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomCode}` }, 
+        (payload) => setRoomData(payload.new)
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_id=eq.${roomCode}` }, 
+        (payload) => {
+           const newP = payload.new;
+           const oldP = playersRef.current.find(p => p.id === newP.id);
+
+           // Logs
+           if (payload.eventType === 'UPDATE' && oldP) {
+              if (oldP.status !== 'folded' && newP.status === 'folded') addLog(`${newP.name} folded.`, 'alert');
+              if (!oldP.is_revealed && newP.is_revealed) addLog(`${newP.name} ready to show!`, 'success');
+           }
+           if (payload.eventType === 'INSERT') addLog(`${newP.name} joined.`, 'success');
+
+           // State Update
+           if (payload.eventType === 'INSERT') setPlayers(prev => [...prev, payload.new]);
+           else if (payload.eventType === 'UPDATE') setPlayers(prev => prev.map(p => p.id === payload.new.id ? payload.new : p));
+           else if (payload.eventType === 'DELETE') setPlayers(prev => prev.filter(p => p.id !== payload.old.id));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [view, roomCode]);
+
+  // --- HANDLERS ---
+  const handleHostCreate = async () => {
     setLoading(true);
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     const deck = getDeck();
-    
     const { error } = await supabase.from('rooms').insert({
       id: code, stage: 'waiting', community_cards: deck.slice(0, 5), deck: deck.slice(5)
     });
-
-    if (error) {
-      alert("Error: " + error.message);
-    } else {
-      // SAVE SESSION
+    if(!error) {
       localStorage.setItem('poker_host_room', code);
-      // Clear any player session just in case
       localStorage.removeItem('poker_player_id');
-      
       setRoomCode(code);
       setView('table');
     }
     setLoading(false);
   };
 
-  const leaveTable = () => {
-    if(confirm("End the game?")) {
-        localStorage.removeItem('poker_host_room');
-        setView('menu');
-        setRoomCode('');
-    }
-  }
-
-  // --- PLAYER FUNCTIONS ---
-  const joinGame = async () => {
-    if (!roomCode || !playerName) return alert("Enter Code and Name!");
+  const recoverHost = async (code: string) => {
     setLoading(true);
-
-    const { data, error } = await supabase.from('players').insert({
-      room_id: roomCode, 
-      name: playerName, 
-      hand: []
-    }).select().single();
-    
-    if (error) {
-      alert("Could not join. Check Room Code.");
+    const { data } = await supabase.from('rooms').select('id').eq('id', code).single();
+    if(data) {
+      localStorage.setItem('poker_host_room', code);
+      setRoomCode(code);
+      setView('table');
     } else {
-      // SAVE SESSION
-      localStorage.setItem('poker_player_id', data.id);
-      localStorage.setItem('poker_player_room', roomCode);
-      // Clear host session
       localStorage.removeItem('poker_host_room');
-
-      setMyId(data.id);
-      setView('player');
     }
     setLoading(false);
   };
-  
-  const leaveGame = () => {
-      if(confirm("Leave the table?")) {
-          localStorage.removeItem('poker_player_id');
-          localStorage.removeItem('poker_player_room');
-          setView('menu');
-          setPlayerName('');
-          setRoomCode('');
-      }
-  }
 
-  // --- REALTIME ---
-  useEffect(() => {
-    if (view === 'menu') return;
+  const handleJoinGame = async (code: string, name: string) => {
+    if(!code || !name) return alert("Missing info");
+    setLoading(true);
 
-    const fetchData = async () => {
-       const { data: r } = await supabase.from('rooms').select('*').eq('id', roomCode).single();
-       if(r) setRoomData(r);
-       else {
-           // Room might be deleted or invalid
-           if(view === 'table') { 
-               alert("Room expired!"); 
-               localStorage.removeItem('poker_host_room'); 
-               setView('menu'); 
-           }
-       }
-
-       const { data: p } = await supabase.from('players').select('*').eq('room_id', roomCode);
-       if(p) setPlayers(p);
-    };
-    fetchData();
-
-    const channel = supabase.channel('game_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomCode}` }, 
-        (payload) => setRoomData(payload.new)
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_id=eq.${roomCode}` }, 
-        () => fetchData() 
-      )
-      .subscribe();
-      
-    return () => { supabase.removeChannel(channel); };
-  }, [view, roomCode]);
-
-  // --- GAMEPLAY ---
-  const nextStage = async () => {
-    if (!roomData) return;
-    const stages = ['waiting', 'preflop', 'flop', 'turn', 'river'];
-    const currentIdx = stages.indexOf(roomData.stage);
+    // 1. DUPLICATE CHECK (Crucial Fix)
+    const { data: existing } = await supabase.from('players').select('*').eq('room_id', code).eq('name', name).single();
     
-    if (currentIdx < 4) {
-      const nextStage = stages[currentIdx + 1];
-      if (nextStage === 'preflop') {
-        const currentDeck = [...roomData.deck];
-        const updates = players.map(p => {
-          return supabase.from('players').update({ hand: [currentDeck.pop(), currentDeck.pop()] }).eq('id', p.id);
-        });
-        await supabase.from('rooms').update({ deck: currentDeck }).eq('id', roomCode);
+    if(existing) {
+      localStorage.setItem('poker_player_id', existing.id);
+      localStorage.setItem('poker_player_room', code);
+      setMyId(existing.id);
+      setRoomCode(code);
+      setView('player');
+    } else {
+      const { data, error } = await supabase.from('players').insert({
+        room_id: code, name, hand: [], status: 'active', is_revealed: false
+      }).select().single();
+      if(!error) {
+        localStorage.setItem('poker_player_id', data.id);
+        localStorage.setItem('poker_player_room', code);
+        setMyId(data.id);
+        setRoomCode(code);
+        setView('player');
+      } else {
+        alert("Check room code");
+      }
+    }
+    setLoading(false);
+  };
+
+  const handleNextStage = async () => {
+    if (!roomData) return;
+    const stages = ['waiting', 'preflop', 'flop', 'turn', 'river', 'showdown'];
+    const idx = stages.indexOf(roomData.stage);
+    if(idx < 5) {
+      const next = stages[idx+1];
+      if(next === 'preflop') {
+        const deck = [...roomData.deck];
+        const active = players.filter(p => p.status !== 'folded');
+        const updates = active.map(p => supabase.from('players').update({ hand: [deck.pop(), deck.pop()] }).eq('id', p.id));
+        await supabase.from('rooms').update({ deck }).eq('id', roomCode);
         await Promise.all(updates);
       }
-      await supabase.from('rooms').update({ stage: nextStage }).eq('id', roomCode);
+      await supabase.from('rooms').update({ stage: next }).eq('id', roomCode);
     } else {
-      const newDeck = getDeck();
-      await supabase.from('rooms').update({ stage: 'waiting', community_cards: newDeck.slice(0,5), deck: newDeck.slice(5) }).eq('id', roomCode);
-      const clearHands = players.map(p => supabase.from('players').update({ hand: [] }).eq('id', p.id));
-      await Promise.all(clearHands);
+      const d = getDeck();
+      await supabase.from('rooms').update({ stage: 'waiting', community_cards: d.slice(0,5), deck: d.slice(5) }).eq('id', roomCode);
+      const reset = players.map(p => supabase.from('players').update({ hand: [], status: 'active', is_revealed: false }).eq('id', p.id));
+      await Promise.all(reset);
     }
   };
 
+  const handleEndGame = () => {
+    if(confirm("End Session?")) { localStorage.clear(); window.location.reload(); }
+  };
+
   // --- RENDER ---
-  if (view === 'menu') return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-900 gap-8 p-4">
-      <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600">
-        POKER
-      </h1>
-      
-      <div className="w-full max-w-sm">
-        <button onClick={createTable} disabled={loading} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xl shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all mb-8">
-          {loading ? 'Starting...' : 'HOST NEW TABLE'}
-        </button>
-
-        <div className="flex flex-col gap-3 bg-neutral-800 p-6 rounded-2xl border border-neutral-700">
-          <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wider mb-2">Join a Game</h3>
-          <input 
-            className="w-full p-4 bg-neutral-900 text-white rounded-xl font-bold text-lg border border-neutral-600 focus:border-yellow-500 outline-none"
-            placeholder="Your Name" 
-            value={playerName}
-            onChange={e => setPlayerName(e.target.value)} 
-          />
-          <div className="flex gap-2">
-            <input 
-              className="flex-1 p-4 bg-neutral-900 text-white rounded-xl text-center font-mono text-xl border border-neutral-600 focus:border-yellow-500 outline-none"
-              placeholder="Code" 
-              value={roomCode}
-              onChange={e => setRoomCode(e.target.value)} 
-            />
-            <button onClick={joinGame} disabled={loading} className="px-8 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg">GO</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // TABLE VIEW
-  if (view === 'table') {
-    const stage = roomData?.stage || 'waiting';
-    const show = stage === 'waiting' || stage === 'preflop' ? 0 : stage === 'flop' ? 3 : stage === 'turn' ? 4 : 5;
-    
-    return (
-      <div className="min-h-screen bg-[#2e4738] flex flex-col items-center p-6 text-white overflow-hidden">
-        <div className="w-full flex justify-between items-center max-w-4xl mb-4 font-mono text-emerald-200/50">
-           <span>ROOM: {roomCode}</span>
-           <button onClick={leaveTable} className="text-red-400 text-xs hover:text-white border border-red-900 px-2 py-1 rounded">END GAME</button>
-        </div>
-        
-        <div className="relative w-full max-w-4xl aspect-[2/1] bg-[#355e45] rounded-[100px] md:rounded-[200px] border-[12px] md:border-[16px] border-[#4a3b32] shadow-2xl flex items-center justify-center mb-8">
-           <div className="flex gap-2 md:gap-4">
-             {(roomData?.community_cards || []).map((c, i) => <Card key={i} card={c} hidden={i >= show} />)}
-           </div>
-        </div>
-        
-        <button onClick={nextStage} className="bg-yellow-500 hover:bg-yellow-400 text-black px-12 py-4 rounded-full font-black text-xl md:text-2xl shadow-xl hover:scale-105 transition-transform active:scale-95 mb-8">
-           {stage === 'river' ? 'NEW ROUND ↺' : 'DEAL / REVEAL ➔'}
-        </button>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
-          {players.map(p => (
-             <div key={p.id} className="bg-black/30 p-4 rounded-xl text-center backdrop-blur-sm border border-white/5">
-               <div className="font-bold text-lg text-emerald-100 truncate">{p.name}</div>
-               <div className="text-sm text-emerald-100/50 mt-1">{p.hand?.length ? 'Cards: ✅' : 'Waiting...'}</div>
-             </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // PLAYER VIEW
-  if (view === 'player') {
-    const me = players.find(p => p.id === myId);
-    return (
-      <div className="min-h-screen bg-neutral-900 flex flex-col items-center justify-center p-4 relative">
-        <button onClick={leaveGame} className="absolute top-4 right-4 text-red-500 text-xs uppercase tracking-widest border border-red-900 px-3 py-2 rounded hover:bg-red-900/20">Leave Table</button>
-        
-        <div className="text-center mb-12">
-           <h2 className="text-gray-500 text-sm tracking-[0.2em] mb-2 uppercase">Your Hand</h2>
-           <div className="text-yellow-500 font-bold text-3xl">{me?.name || 'Loading...'}</div>
-        </div>
-
-        <div className="flex justify-center gap-4 mb-16">
-          {me?.hand && me.hand.length > 0 ? (
-             <>
-               <Card card={me.hand[0]} />
-               <Card card={me.hand[1]} />
-             </>
-          ) : (
-             <div className="text-white/30 text-xl font-mono animate-pulse">Waiting for dealer...</div>
-          )}
-        </div>
-        
-        <div className="absolute bottom-8 text-center w-full">
-           <div className="inline-block bg-neutral-800 px-6 py-3 rounded-full border border-neutral-700">
-              <span className="text-gray-400 text-xs uppercase mr-2">Status</span>
-              <span className="text-white font-bold">{roomData?.stage?.toUpperCase()}</span>
-           </div>
-        </div>
-      </div>
-    );
-  }
+  if(view === 'menu') return <GameMenu APP_NAME={APP_NAME} onCreateTable={handleHostCreate} onJoinGame={handleJoinGame} onRecoverHost={recoverHost} loading={loading} />;
+  if(view === 'table') return <GameTable roomCode={roomCode} roomData={roomData} players={players} onNextStage={handleNextStage} onEndGame={handleEndGame} logs={logs} />;
+  
+  const me = players.find(p => p.id === myId);
+  return <PlayerView 
+    roomCode={roomCode} 
+    me={me} 
+    stage={roomData?.stage} 
+    onFold={async () => await supabase.from('players').update({ status: 'folded' }).eq('id', myId)}
+    onToggleReveal={async (curr) => await supabase.from('players').update({ is_revealed: !curr }).eq('id', myId)}
+    onLeave={handleEndGame} 
+  />;
 }
