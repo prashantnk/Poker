@@ -87,6 +87,9 @@ ON storage.objects
 FOR SELECT
 USING ( bucket_id = 'qrcodes' );
 
+-- Add a column to store the calculated winners
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS winners jsonb DEFAULT '[]'::jsonb;
+
 /*
 
 If want to clean up data from the tables: 

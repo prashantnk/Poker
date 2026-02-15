@@ -18,7 +18,7 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
   const isFolded = me?.status === 'folded';
 
   return (
-    <div className="min-h-screen bg-neutral-900 flex flex-col p-4 relative text-white">
+    <div className="min-h-screen bg-neutral-900 flex flex-col p-4 relative text-white touch-none">
       {/* HEADER */}
       <div className="flex justify-between items-center mb-2">
          <div className="text-gray-400 text-xs font-mono">ROOM: {roomCode}</div>
@@ -30,22 +30,21 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
          <div className="text-gray-500 text-xs uppercase tracking-widest">{isFolded ? 'FOLDED - WATCHING' : stage}</div>
       </div>
 
-      {/* CARD AREA - MAXIMIZED BUT PROPORTIONAL */}
+      {/* CARD AREA */}
       <div className="flex-1 flex flex-col justify-center items-center gap-6 relative min-h-0 w-full">
         {hasCards ? (
           <>
-            <div className={`flex justify-center gap-4 w-full h-full items-center transition-all duration-300 ${isFolded ? 'opacity-40' : ''}`}>
-               {/* Cards take 45% width but MAINTAIN 2/3 ASPECT RATIO */}
-               {/* This prevents the "stretched/fat" look */}
-               <div className="w-[45%] max-w-[350px] aspect-[2/3]">
+            <div className={`flex justify-center gap-4 w-full h-full items-center transition-opacity duration-300 ${isFolded ? 'opacity-40' : ''}`}>
+               {/* Fixed Aspect Ratio Container */}
+               <div className="w-[45%] max-w-[350px] aspect-[2.5/3.5] relative">
                  <Card card={me.hand[0]} hidden={!isPeeking && !forceShow} size="lg" />
                </div>
-               <div className="w-[45%] max-w-[350px] aspect-[2/3]">
+               <div className="w-[45%] max-w-[350px] aspect-[2.5/3.5] relative">
                  <Card card={me.hand[1]} hidden={!isPeeking && !forceShow} size="lg" />
                </div>
             </div>
             
-            {/* Watermark for Folded */}
+            {/* Folded Overlay */}
             {isFolded && (
                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="text-red-600 text-5xl md:text-8xl font-black border-[8px] md:border-[12px] border-red-600 p-4 md:p-8 rounded-3xl -rotate-12 tracking-widest opacity-80 mix-blend-screen bg-black/40">
@@ -70,8 +69,7 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
       </div>
       
       {/* CONTROLS */}
-      <div className="mt-6 flex flex-col gap-3 shrink-0">
-         
+      <div className="mt-6 flex flex-col gap-3 shrink-0 pb-safe">
          <div className="flex justify-between items-center bg-neutral-800 p-4 rounded-xl">
             <span className="font-bold text-sm text-gray-300">Keep Cards Open</span>
             <button onClick={() => setForceShow(!forceShow)} className={`w-14 h-8 rounded-full relative transition-colors ${forceShow ? 'bg-green-500' : 'bg-gray-600'}`}>
@@ -81,8 +79,8 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
 
          <div className={`flex justify-between items-center bg-neutral-800 p-4 rounded-xl border ${me?.is_revealed ? 'border-yellow-500/50' : 'border-transparent'}`}>
             <div className="flex flex-col">
-              <span className={`font-bold text-sm ${me?.is_revealed ? 'text-yellow-500' : 'text-gray-300'}`}>Auto-Reveal at Showdown</span>
-              <span className="text-[10px] text-gray-500">Show cards to TV at end of round</span>
+              <span className={`font-bold text-sm ${me?.is_revealed ? 'text-yellow-500' : 'text-gray-300'}`}>Auto-Reveal</span>
+              <span className="text-[10px] text-gray-500">Show to TV at Showdown</span>
             </div>
             <button onClick={() => onToggleReveal(me?.is_revealed)} className={`w-14 h-8 rounded-full relative transition-colors ${me?.is_revealed ? 'bg-yellow-500' : 'bg-gray-600'}`}>
               <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${me?.is_revealed ? 'left-7' : 'left-1'}`}></div>
