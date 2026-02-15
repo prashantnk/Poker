@@ -154,13 +154,21 @@ export default function PokerPage() {
     setView('menu');
   };
 
-  const handleHostCreate = async () => {
+const handleHostCreate = async (qrUrl: string | null) => { // Accept QR URL
     setLoading(true);
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     const deck = getDeck(100); 
+    
+    // Pass qr_url to Supabase
     const { error } = await supabase.from('rooms').insert({
-      id: code, stage: 'waiting', community_cards: deck.slice(0, 5), deck: deck.slice(5), shuffle_factor: 100
+      id: code, 
+      stage: 'waiting', 
+      community_cards: deck.slice(0, 5), 
+      deck: deck.slice(5), 
+      shuffle_factor: 100,
+      qr_url: qrUrl 
     });
+
     if(!error) {
       localStorage.setItem('poker_host_room', code);
       localStorage.removeItem('poker_player_id');

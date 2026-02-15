@@ -22,7 +22,7 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
       {/* HEADER */}
       <div className="flex justify-between items-center mb-2">
          <div className="text-gray-400 text-xs font-mono">ROOM: {roomCode}</div>
-         <button onClick={onLeave} className="text-red-500 text-[10px] border border-red-900 px-2 py-1 rounded active:bg-red-900/20">LEAVE</button>
+         <button onClick={onLeave} className="text-red-500 text-[10px] border border-red-900 px-3 py-2 rounded active:bg-red-900/20">LEAVE</button>
       </div>
 
       <div className="text-center mb-4">
@@ -36,18 +36,19 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
           <>
             <div className={`flex justify-center gap-4 w-full h-full items-center transition-all duration-300 ${isFolded ? 'opacity-40' : ''}`}>
                {/* Cards take up maximum available width up to 45% each */}
-               <div className="w-[45%] max-w-[300px]">
-                 <Card card={me.hand[0]} hidden={!isPeeking && !forceShow} />
+               <div className="w-[45%] max-w-[350px]">
+                 {/* SIZE="LG" makes the text huge */}
+                 <Card card={me.hand[0]} hidden={!isPeeking && !forceShow} size="lg" />
                </div>
-               <div className="w-[45%] max-w-[300px]">
-                 <Card card={me.hand[1]} hidden={!isPeeking && !forceShow} />
+               <div className="w-[45%] max-w-[350px]">
+                 <Card card={me.hand[1]} hidden={!isPeeking && !forceShow} size="lg" />
                </div>
             </div>
             
             {/* Watermark for Folded */}
             {isFolded && (
                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="text-red-600 text-6xl font-black border-[12px] border-red-600 p-6 rounded-3xl -rotate-12 tracking-widest opacity-80 mix-blend-screen">
+                  <div className="text-red-600 text-6xl md:text-8xl font-black border-[8px] md:border-[12px] border-red-600 p-4 md:p-8 rounded-3xl -rotate-12 tracking-widest opacity-80 mix-blend-screen bg-black/40">
                      FOLDED
                   </div>
                </div>

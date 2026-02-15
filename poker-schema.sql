@@ -38,4 +38,20 @@ ALTER TABLE players ADD COLUMN status text DEFAULT 'active';
 ALTER TABLE players ADD COLUMN is_revealed boolean DEFAULT false;
 ALTER TABLE rooms ADD COLUMN shuffle_factor int DEFAULT 100;
 
+/*
+Create Storage Bucket:
+
+Go to Supabase Dashboard -> Storage.
+
+Click "New Bucket".
+
+Name it qrcodes.
+
+Make it Public (so players can see the image).
+
+Save.
+
+*/
+ALTER TABLE rooms ADD COLUMN qr_url text;
+
 
