@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Card Type Definition
 export type CardType = {
   suit: string;
   value: string;
@@ -14,7 +13,7 @@ type CardProps = {
   className?: string;
 };
 
-const Card = ({ card, hidden, className = "" }: CardProps) => {
+export default function Card({ card, hidden, className = "" }: CardProps) {
   if (hidden || !card) return (
     <div className={`aspect-[2/3] bg-blue-900 rounded-xl border-2 md:border-4 border-white shadow-xl flex items-center justify-center ${className}`}>
       <span className="text-2xl md:text-4xl">🐉</span>
@@ -26,6 +25,4 @@ const Card = ({ card, hidden, className = "" }: CardProps) => {
       <span className="text-4xl md:text-6xl">{card.suit}</span>
     </div>
   );
-};
-
-export default Card;
+}

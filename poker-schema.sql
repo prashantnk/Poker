@@ -36,5 +36,6 @@ CREATE POLICY "Public Access Players" ON players FOR ALL USING (true) WITH CHECK
 
 ALTER TABLE players ADD COLUMN status text DEFAULT 'active';
 ALTER TABLE players ADD COLUMN is_revealed boolean DEFAULT false;
+ALTER TABLE rooms ADD COLUMN shuffle_factor int DEFAULT 100;
 
 

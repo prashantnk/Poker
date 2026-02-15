@@ -14,12 +14,12 @@ export default function GameMenu({ APP_NAME, onCreateTable, onJoinGame, onRecove
   const [isRecovering, setIsRecovering] = useState(false);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-900 gap-8 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-900 gap-8 p-4 relative">
       <h1 className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-600 text-center">
         {APP_NAME}
       </h1>
       
-      <div className="w-full max-w-sm flex flex-col gap-6">
+      <div className="w-full max-w-sm flex flex-col gap-6 z-10">
         {/* HOST AREA */}
         {!isRecovering ? (
           <div className="flex flex-col gap-2">
@@ -54,6 +54,32 @@ export default function GameMenu({ APP_NAME, onCreateTable, onJoinGame, onRecove
               GO
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* CREDITS FOOTER */}
+      <div className="absolute bottom-6 flex flex-col items-center gap-2 opacity-50 hover:opacity-100 transition-opacity duration-300">
+        <span className="text-neutral-600 font-mono text-xs tracking-[0.2em] uppercase cursor-default select-none">
+          Made by Prashant
+        </span>
+        <div className="flex gap-4 text-xs font-mono">
+          <a 
+            href="https://github.com/prashantnk/Poker" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-neutral-500 hover:text-white transition-colors"
+          >
+            GITHUB
+          </a>
+          <span className="text-neutral-700">|</span>
+          <a 
+            href="https://www.linkedin.com/in/prashant-ranjan-b44899b3/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-neutral-500 hover:text-blue-400 transition-colors"
+          >
+            LINKEDIN
+          </a>
         </div>
       </div>
     </div>

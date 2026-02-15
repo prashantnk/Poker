@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Card, { CardType } from './Card';
+import Card from './Card';
 
 type PlayerViewProps = {
   roomCode: string;
@@ -20,25 +20,26 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
   return (
     <div className="min-h-screen bg-neutral-900 flex flex-col p-4 relative text-white">
       {/* HEADER */}
-      <div className="flex justify-between items-center mb-4">
-         <div className="text-gray-400 text-sm font-mono">ROOM: {roomCode}</div>
-         <button onClick={onLeave} className="text-red-500 text-xs border border-red-900 px-3 py-2 rounded active:bg-red-900/20">LEAVE</button>
+      <div className="flex justify-between items-center mb-2">
+         <div className="text-gray-400 text-xs font-mono">ROOM: {roomCode}</div>
+         <button onClick={onLeave} className="text-red-500 text-[10px] border border-red-900 px-2 py-1 rounded active:bg-red-900/20">LEAVE</button>
       </div>
 
-      <div className="text-center mb-2">
+      <div className="text-center mb-4">
          <div className="text-yellow-500 font-bold text-3xl">{me?.name}</div>
          <div className="text-gray-500 text-xs uppercase tracking-widest">{isFolded ? 'FOLDED - WATCHING' : stage}</div>
       </div>
 
-      {/* CARD AREA */}
-      <div className="flex-1 flex flex-col justify-center items-center gap-6 relative">
+      {/* CARD AREA - MAXIMIZED */}
+      <div className="flex-1 flex flex-col justify-center items-center gap-6 relative min-h-0">
         {hasCards ? (
           <>
-            <div className={`flex justify-center gap-4 w-full transition-all duration-300 ${isFolded ? 'opacity-40' : ''}`}>
-               <div className="w-1/2 max-w-[180px]">
+            <div className={`flex justify-center gap-4 w-full h-full items-center transition-all duration-300 ${isFolded ? 'opacity-40' : ''}`}>
+               {/* Cards take up maximum available width up to 45% each */}
+               <div className="w-[45%] max-w-[300px]">
                  <Card card={me.hand[0]} hidden={!isPeeking && !forceShow} />
                </div>
-               <div className="w-1/2 max-w-[180px]">
+               <div className="w-[45%] max-w-[300px]">
                  <Card card={me.hand[1]} hidden={!isPeeking && !forceShow} />
                </div>
             </div>
@@ -46,7 +47,7 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
             {/* Watermark for Folded */}
             {isFolded && (
                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="text-red-600 text-5xl font-black border-8 border-red-600 p-4 rounded-xl -rotate-12 tracking-widest opacity-80 mix-blend-screen">
+                  <div className="text-red-600 text-6xl font-black border-[12px] border-red-600 p-6 rounded-3xl -rotate-12 tracking-widest opacity-80 mix-blend-screen">
                      FOLDED
                   </div>
                </div>
@@ -63,12 +64,12 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
             </button>
           </>
         ) : (
-          <div className="text-white/20 text-3xl font-black text-center animate-pulse">WAITING...</div>
+          <div className="text-white/20 text-4xl font-black text-center animate-pulse">WAITING...</div>
         )}
       </div>
       
       {/* CONTROLS */}
-      <div className="mt-6 flex flex-col gap-3">
+      <div className="mt-6 flex flex-col gap-3 shrink-0">
          
          <div className="flex justify-between items-center bg-neutral-800 p-4 rounded-xl">
             <span className="font-bold text-sm text-gray-300">Keep Cards Open</span>
@@ -80,7 +81,7 @@ export default function PlayerView({ roomCode, me, stage, onFold, onToggleReveal
          <div className={`flex justify-between items-center bg-neutral-800 p-4 rounded-xl border ${me?.is_revealed ? 'border-yellow-500/50' : 'border-transparent'}`}>
             <div className="flex flex-col">
               <span className={`font-bold text-sm ${me?.is_revealed ? 'text-yellow-500' : 'text-gray-300'}`}>Auto-Reveal at Showdown</span>
-              <span className="text-[10px] text-gray-500">Enable this to show cards on TV</span>
+              <span className="text-[10px] text-gray-500">Show cards to TV at end of round</span>
             </div>
             <button onClick={() => onToggleReveal(me?.is_revealed)} className={`w-14 h-8 rounded-full relative transition-colors ${me?.is_revealed ? 'bg-yellow-500' : 'bg-gray-600'}`}>
               <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${me?.is_revealed ? 'left-7' : 'left-1'}`}></div>
