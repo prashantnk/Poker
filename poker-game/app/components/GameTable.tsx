@@ -67,13 +67,18 @@ export default function GameTable({
     <div className="h-screen bg-[#1a2e22] flex flex-col items-center p-2 text-white overflow-hidden relative">
       <GameNotifications logs={logs} />
 
-      {/* --- MODALS (Winner, QR, Zoom) --- */}
+      {/* --- MODALS --- */}
+
+      {/* 1. WINNER MODAL */}
       {showWinnerModal && winners.length > 0 && (
         <div 
           className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
           onClick={() => setShowWinnerModal(false)}
         >
-           <div className="relative bg-[#1a2e22] p-8 rounded-2xl border-2 border-emerald-500/50 shadow-2xl flex flex-col items-center text-center min-w-[300px] max-w-lg" onClick={(e) => e.stopPropagation()}>
+           <div 
+             className="relative bg-[#1a2e22] p-8 rounded-2xl border-2 border-emerald-500/50 shadow-2xl flex flex-col items-center text-center min-w-[300px] max-w-lg"
+             onClick={(e) => e.stopPropagation()} 
+           >
               <button onClick={() => setShowWinnerModal(false)} className="absolute top-3 right-3 text-white/30 hover:text-white transition-colors">✕</button>
               <div className="text-yellow-400 font-bold tracking-widest text-lg uppercase mb-6 border-b border-white/10 pb-2 w-full">Winner</div>
               <div className="flex flex-col gap-6 w-full">
@@ -91,8 +96,12 @@ export default function GameTable({
         </div>
       )}
 
+      {/* 2. QR ZOOM MODAL */}
       {isQrZoomed && roomData?.qr_url && (
-        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-8 cursor-pointer" onClick={() => setIsQrZoomed(false)}>
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-8 cursor-pointer animate-in fade-in duration-200"
+          onClick={() => setIsQrZoomed(false)}
+        >
           <div className="relative bg-white p-4 rounded-3xl shadow-2xl w-full max-w-lg aspect-square" onClick={e => e.stopPropagation()}>
             <Image src={roomData.qr_url} alt="Scan to Pay" fill className="object-contain p-2" />
             <div className="absolute bottom-[-40px] left-0 right-0 text-white text-center font-bold text-xl uppercase">SCAN TO PAY</div>
@@ -100,9 +109,16 @@ export default function GameTable({
         </div>
       )}
 
+      {/* 3. PLAYER ZOOM OVERLAY */}
       {zoomedPlayer && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 animate-in fade-in zoom-in duration-150 cursor-zoom-out" onClick={() => setZoomedPlayer(null)}>
-          <div className="relative bg-[#1a2e22] border-[6px] border-emerald-500 p-8 rounded-[3rem] shadow-[0_0_50px_rgba(0,0,0,0.8)] w-full max-w-3xl flex flex-col items-center gap-6 transform-gpu scale-110 cursor-default" onClick={(e) => e.stopPropagation()}>
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center animate-in fade-in zoom-in duration-150 cursor-zoom-out bg-black/80"
+          onClick={() => setZoomedPlayer(null)}
+        >
+          <div 
+            className="relative bg-[#1a2e22] border-[6px] border-emerald-500 p-8 rounded-[3rem] shadow-[0_0_50px_rgba(0,0,0,0.8)] w-full max-w-3xl flex flex-col items-center gap-6 transform-gpu scale-110 cursor-default"
+            onClick={(e) => e.stopPropagation()} 
+          >
             <button onClick={() => setZoomedPlayer(null)} className="absolute top-4 right-6 text-white/30 hover:text-white text-4xl transition-colors cursor-pointer">&times;</button>
             <div className="font-black text-5xl md:text-7xl text-white drop-shadow-xl tracking-wide text-center uppercase">{zoomedPlayer.name}</div>
             <div className="flex justify-center gap-8 w-full items-center my-4">
@@ -130,12 +146,18 @@ export default function GameTable({
       <div className="flex-none w-full flex justify-between items-center px-6 py-2 font-mono text-emerald-200/60 border-b border-white/5 z-20 bg-[#1a2e22]/50 backdrop-blur-sm">
          <div className="flex flex-col">
             <span className="text-xl md:text-2xl">ROOM: <span className="text-white font-bold">{roomCode}</span></span>
+            
+            {/* --- NEW: Fairness Display in Header --- */}
+            <span className={`text-[10px] md:text-xs font-bold uppercase tracking-widest ${shuffleFactor < 100 ? 'text-yellow-500' : 'text-emerald-500/50'}`}>
+               {shuffleFactor === 100 ? 'FAIR GAME' : `RIGGED: ${shuffleFactor}%`}
+            </span>
          </div>
+
          <span className="text-2xl md:text-4xl font-bold uppercase tracking-widest text-yellow-500 animate-pulse">{stage}</span>
          <button onClick={onEndGame} className="text-red-400 text-sm border-2 border-red-900 px-4 py-2 rounded-xl font-bold hover:bg-red-900/20">END GAME</button>
       </div>
       
-      {/* 2. TABLE AREA (Fixed Height, does not shrink) */}
+      {/* 2. TABLE AREA */}
       <div className="flex-none h-[35vh] w-full flex justify-center items-center my-2 relative z-10">
         <div className="relative w-full max-w-[95vw] h-full bg-[#254230] rounded-[40px] md:rounded-[100px] border-[12px] md:border-[20px] border-[#3e2c26] shadow-2xl flex items-center justify-center ring-4 ring-black/20 overflow-hidden transform-gpu">
            <div className="flex gap-2 md:gap-6 px-4 md:px-12 h-[75%] w-full justify-center items-center">
@@ -154,16 +176,24 @@ export default function GameTable({
            {stage === 'showdown' ? 'NEW ROUND ↺' : stage === 'river' ? 'SHOWDOWN ➔' : 'DEAL ➔'}
         </button>
 
+        {/* Slider Controls */}
         {(stage === 'waiting' || stage === 'showdown') && (
           <div className="flex items-center gap-4 bg-black/60 px-6 py-2 rounded-full border-2 border-white/10">
-             <span className="text-xs font-bold text-gray-400">RIGGED</span>
-             <input type="range" min="0" max="100" step="10" value={shuffleFactor} onChange={(e) => onShuffleChange(parseInt(e.target.value))} className="w-32 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-             <span className="text-xs font-bold text-emerald-400">FAIR</span>
+             <span className="text-[10px] text-gray-400 font-bold">RIGGED</span>
+             <input 
+               type="range" min="0" max="100" step="10" 
+               value={shuffleFactor} 
+               onChange={(e) => onShuffleChange(parseInt(e.target.value))} 
+               className="w-32 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" 
+             />
+             <span className={`text-xs font-bold w-12 text-right ${shuffleFactor < 50 ? 'text-red-400' : 'text-emerald-400'}`}>
+                {shuffleFactor}%
+             </span>
           </div>
         )}
       </div>
       
-      {/* 4. PLAYERS (Flexible - Fills remaining space & Scrolls) */}
+      {/* 4. PLAYERS (Flexible) */}
       <div className="flex-1 w-full min-h-0 overflow-y-auto px-4 pb-4 mt-2">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-8 mx-auto max-w-[1800px]">
           {players.map(p => {
