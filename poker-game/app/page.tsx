@@ -16,7 +16,7 @@ const SUITS = ['♠', '♥', '♣', '♦'];
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
 // --- HELPERS ---
-const getDeckOld = (randomness = 100) => {
+const getDeck = (randomness = 100) => {
   const deck = VALUES.flatMap(value => 
     SUITS.map(suit => ({
       suit, value, 
@@ -25,7 +25,7 @@ const getDeckOld = (randomness = 100) => {
     }))
   );
   if (randomness === 0) return deck;
-  const totalSwaps = Math.floor((deck.length * 5) * (randomness / 100));
+  const totalSwaps = Math.floor((deck.length * 52) * (randomness / 100));
   for (let i = 0; i < totalSwaps; i++) {
     const idx1 = Math.floor(Math.random() * deck.length);
     const idx2 = Math.floor(Math.random() * deck.length);
@@ -34,7 +34,7 @@ const getDeckOld = (randomness = 100) => {
   return deck;
 };
 
-const getDeck = (randomness = 100) => {
+const getDeckOld = (randomness = 100) => {
   // 1. Create the base deck
   const deck = VALUES.flatMap(value => 
     SUITS.map(suit => ({
