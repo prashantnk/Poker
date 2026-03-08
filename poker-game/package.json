@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
+    "@vercel/analytics": "^1.6.1",
     "clsx": "^2.1.1",
     "lodash": "^4.17.23",
     "next": "16.1.6",

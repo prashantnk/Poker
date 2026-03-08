@@ -365,7 +365,7 @@ export default function PokerPage() {
       ];
       players.forEach(p => {
          if (p.hand && p.hand.length > 0) {
-            gatheredCards.push(...p.hand);
+            rawGatheredCards.push(...p.hand);
          }
       });
       // 2. Filter out any duplicates just in case (using lodash)
