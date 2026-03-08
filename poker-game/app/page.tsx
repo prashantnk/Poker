@@ -15,15 +15,20 @@ const APP_NAME = "Poker: Zero or One";
 const SUITS = ['♠', '♥', '♣', '♦'];
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
-// --- HELPERS ---
-const getDeck = (randomness = 100) => {
-  const deck = VALUES.flatMap(value => 
+const createFreshDeck = () => {
+  return VALUES.flatMap(value => 
     SUITS.map(suit => ({
       suit, value, 
       color: (suit === '♥' || suit === '♦') ? 'text-red-600' : 'text-black',
       id: `${value}${suit}`
     }))
   );
+};
+
+
+// --- HELPERS ---
+const shuffleDeck = (existingDeck: any[], randomness = 100) => {
+  const deck = [...existingDeck];
   if (randomness === 0) return deck;
   const totalSwaps = Math.floor((deck.length * 10) * (randomness / 100));
   for (let i = 0; i < totalSwaps; i++) {
@@ -34,33 +39,16 @@ const getDeck = (randomness = 100) => {
   return deck;
 };
 
-const getDeckOld = (randomness = 100) => {
-  // 1. Create the base deck
-  const deck = VALUES.flatMap(value => 
-    SUITS.map(suit => ({
-      suit, value, 
-      color: (suit === '♥' || suit === '♦') ? 'text-red-600' : 'text-black',
-      id: `${value}${suit}`
-    }))
-  );
-
-  // 2. The "Rigged" Logic (If fairness < 100%)
-  // If randomness is 0, we return the deck mostly sorted (Predictable)
-  // If randomness is 50, we only shuffle half the deck
-  // This logic stays the same to support your "Rigged" feature
+// 2. Shuffles an existing array of cards using Fisher-Yates based on randomness %
+const shuffleDeckFisherYates = (existingDeck: any[], randomness = 100) => {
+  const deck = [...existingDeck];
   if (randomness === 0) return deck;
 
-  // 3. THE FIX: Fisher-Yates Shuffle Algorithm
-  // We only shuffle elements up to the "fairness" point to keep the rigged feature working
-  // If randomness is 100 (Fair), we shuffle the entire deck (i > 0).
-  
+  // Only shuffle up to the fairness percentage
   const limit = deck.length - Math.floor(deck.length * (randomness / 100));
   
   for (let i = deck.length - 1; i > limit; i--) {
-    // Pick a random remaining element
     const j = Math.floor(Math.random() * (i + 1));
-    
-    // Swap it with the current element
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   
@@ -243,7 +231,10 @@ export default function PokerPage() {
   const handleHostCreate = async (qrUrl: string | null) => {
     setLoading(true);
     const code = Math.floor(1000 + Math.random() * 9000).toString();
-    const deck = getDeck(100); 
+
+    // First game gets a freshly created deck, totally shuffled
+    const initialDeck = createFreshDeck();
+    const deck = shuffleDeck(initialDeck, 100);    
     
     const { error } = await supabase.from('rooms').insert({
       id: code, 
@@ -367,7 +358,28 @@ export default function PokerPage() {
     } else {
       // RESET
       const currentFactor = roomData.shuffle_factor ?? 100;
-      const d = getDeck(currentFactor);
+      // 1. Gather all cards currently in play
+      const rawGatheredCards: any[] = [
+         ...(roomData.deck || []),
+         ...(roomData.community_cards || [])
+      ];
+      players.forEach(p => {
+         if (p.hand && p.hand.length > 0) {
+            gatheredCards.push(...p.hand);
+         }
+      });
+      // 2. Filter out any duplicates just in case (using lodash)
+      const uniqueGatheredCards = _.uniqBy(rawGatheredCards, 'id');
+      // 3. Find any cards that might have gone missing due to DB sync drops
+      const fullDeck = createFreshDeck();
+      const missingCards = fullDeck.filter(
+         fullCard => !uniqueGatheredCards.some((gatheredCard: any) => gatheredCard.id === fullCard.id)
+      );
+      // 4. Combine them securely: existing cards first, missing cards securely at the bottom
+      const finalCardsToShuffle = [...uniqueGatheredCards, ...missingCards];
+      // 5. Shuffle the recovered deck based on the slider factor
+      const d = shuffleDeck(finalCardsToShuffle, currentFactor);
+      
       const nextDealer = (roomData.dealer_index || 0) + 1;
       const nextRound = (roomData.round_count || 1) + 1;
       
