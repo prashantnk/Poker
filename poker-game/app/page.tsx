@@ -30,7 +30,7 @@ const createFreshDeck = () => {
 const shuffleDeck = (existingDeck: any[], randomness = 100) => {
   const deck = [...existingDeck];
   if (randomness === 0) return deck;
-  const totalSwaps = Math.floor((deck.length * 10) * (randomness / 100));
+  const totalSwaps = Math.floor((deck.length * 5) * (randomness / 100));
   for (let i = 0; i < totalSwaps; i++) {
     const idx1 = Math.floor(Math.random() * deck.length);
     const idx2 = Math.floor(Math.random() * deck.length);
