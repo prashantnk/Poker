@@ -181,8 +181,11 @@ export default function GameTable({
          </div>
       </div>
       
-      <div className="flex-none h-[35vh] w-full flex justify-center items-center my-2 relative z-10">
-        <div className="relative w-full max-w-[95vw] h-full bg-[#254230] rounded-[40px] md:rounded-[100px] border-[12px] md:border-[20px] border-[#3e2c26] shadow-2xl flex items-center justify-center ring-4 ring-black/20 overflow-hidden transform-gpu">
+     {/* --- MIDDLE SECTION: TABLE & MINIMAL SIDEBAR --- */}
+      <div className="flex-none h-[35vh] md:h-[40vh] w-full flex flex-row gap-4 px-2 md:px-6 my-2 relative z-10">
+        
+        {/* The Poker Table */}
+        <div className="flex-1 relative h-full bg-[#254230] rounded-[40px] md:rounded-[100px] border-[12px] md:border-[20px] border-[#3e2c26] shadow-2xl flex items-center justify-center ring-4 ring-black/20 overflow-hidden transform-gpu">
            <div className="flex gap-2 md:gap-6 px-4 md:px-12 h-[75%] w-full justify-center items-center">
              {(roomData?.community_cards || []).map((c: CardType, i: number) => (
                 <div key={i} className="h-full w-auto max-w-[19%] aspect-[2.5/3.5] shadow-2xl transition-transform duration-300 hover:scale-105">
@@ -191,6 +194,43 @@ export default function GameTable({
              ))}
            </div>
         </div>
+
+        {/* The Minimal Player Sidebar (Hidden on tiny mobile screens, visible on Tablets/TVs) */}
+        <div className="hidden md:flex w-64 lg:w-72 bg-black/40 border border-white/5 rounded-[2rem] p-4 flex-col gap-2 backdrop-blur-md shadow-xl">
+           <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-1 shrink-0 px-2">
+             <h3 className="text-emerald-400 font-bold text-xs tracking-widest uppercase">Players</h3>
+             <span className="text-xs font-mono text-gray-500">{players.length}</span>
+           </div>
+           
+           <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1 custom-scrollbar">
+              {sortedPlayers.map(p => {
+                  const isActive = p.status !== 'folded';
+                  const isWinner = winners.some(w => w.id === p.id);
+                  const isStarter = p.name === starterName;
+                  
+                  // Status Dot Logic
+                  let dotClass = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"; // Active
+                  if (!isActive) dotClass = "bg-red-500 opacity-50"; // Folded
+                  if (isWinner) dotClass = "bg-yellow-400 animate-pulse"; // Winner
+                  else if (p.is_revealed) dotClass = "bg-blue-400 animate-pulse"; // Revealed
+
+                  return (
+                     <div key={p.id} className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${!isActive ? 'opacity-50 bg-red-900/10 border-red-900/30' : isWinner ? 'bg-yellow-900/30 border-yellow-500/50' : 'bg-white/5 border-white/5'}`}>
+                        <div className="flex items-center gap-3 overflow-hidden">
+                           <div className={`w-2 h-2 rounded-full shrink-0 ${dotClass}`} />
+                           <span className={`font-bold text-sm truncate ${isWinner ? 'text-yellow-400' : 'text-gray-200'}`}>{p.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                           {isStarter && <span className="text-[9px] bg-blue-600/80 text-blue-100 px-1.5 py-0.5 rounded-sm font-black border border-blue-400/50">D</span>}
+                           {isWinner && <span className="text-[10px] text-yellow-400 font-black uppercase tracking-wider">Win</span>}
+                           {!isActive && <span className="text-[10px] text-red-400/80 font-black uppercase tracking-wider">Fold</span>}
+                        </div>
+                     </div>
+                  )
+              })}
+           </div>
+        </div>
+
       </div>
       
       <div className="flex-none py-2 flex flex-col items-center gap-2 z-30">
@@ -207,7 +247,7 @@ export default function GameTable({
       </div>
       
       <div className="flex-1 w-full min-h-0 overflow-y-auto px-4 pb-4 mt-2">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-8 mx-auto max-w-[1800px]">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3 md:gap-6 mx-auto w-full">
           {sortedPlayers.map((p, i) => {
              const showCards = isShowdown && p.is_revealed;
              const isActive = p.status !== 'folded';
@@ -215,8 +255,8 @@ export default function GameTable({
              const isStarter = p.name === starterName;
              
              return (
-               <div key={p.id} onClick={() => setZoomedPlayer(p)} className={`flex flex-col items-center p-2 md:p-3 rounded-[2rem] border-[6px] transition-all duration-300 relative shadow-xl min-h-[220px] md:min-h-[280px] group cursor-zoom-in transform-gpu ${isWinner ? 'bg-yellow-900/80 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.5)] scale-105 z-20' : !isActive ? 'bg-gray-900/60 border-gray-700 opacity-60' : 'bg-black/70 border-emerald-500/60 hover:border-yellow-400 hover:bg-black/90'}`}>
-                 <div className="font-black text-xl md:text-2xl truncate mb-1 text-white drop-shadow-lg tracking-wide w-full text-center shrink-0 flex items-center gap-2 justify-center">
+               <div key={p.id} onClick={() => setZoomedPlayer(p)} className={`flex flex-col items-center p-2 md:p-3 rounded-[2rem] border-[6px] transition-all duration-300 relative shadow-xl min-h-[200px] md:min-h-[250px] group cursor-zoom-in transform-gpu ${isWinner ? 'bg-yellow-900/80 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.5)] scale-105 z-20' : !isActive ? 'bg-gray-900/60 border-gray-700 opacity-60' : 'bg-black/70 border-emerald-500/60 hover:border-yellow-400 hover:bg-black/90'}`}>
+                 <div className="font-black text-lg md:text-xl truncate mb-1 text-white drop-shadow-lg tracking-wide w-full text-center shrink-0 flex items-center gap-2 justify-center">
                     {p.name}
                     {isStarter && <span className="text-blue-400 text-xs md:text-sm bg-blue-900/50 border border-blue-500 rounded-full px-2 py-0.5">D</span>}
                  </div>
