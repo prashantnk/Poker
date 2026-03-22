@@ -356,30 +356,41 @@ export default function PokerPage() {
       await supabase.from('rooms').update(updates).eq('id', roomCode);
 
     } else {
-      // RESET
+      // --- NEW ROUND (REFACTOR: Randomly Insert Muck, Then Swap-Shuffle) ---
       const currentFactor = roomData.shuffle_factor ?? 100;
-      // 1. Gather all cards currently in play
-      const rawGatheredCards: any[] = [
-         ...(roomData.deck || []),
-         ...(roomData.community_cards || [])
-      ];
+      
+      // 1. Separate unplayed cards and played cards
+      const unplayedCards = [...(roomData.deck || [])];
+      const playedCards: any[] = [...(roomData.community_cards || [])];
+      
       players.forEach(p => {
          if (p.hand && p.hand.length > 0) {
-            rawGatheredCards.push(...p.hand);
+            playedCards.push(...p.hand);
          }
       });
-      // 2. Filter out any duplicates just in case (using lodash)
-      const uniqueGatheredCards = _.uniqBy(rawGatheredCards, 'id');
-      // 3. Find any cards that might have gone missing due to DB sync drops
+
+      // 2. Randomly insert the played cards back into the unplayed deck
+      // This spreads out the high cards (Aces/Kings) so they don't clump at the top or bottom
+      let combinedDeck = [...unplayedCards];
+      playedCards.forEach(card => {
+          // Pick a random index from 0 up to the current length of combinedDeck
+          const randomIndex = Math.floor(Math.random() * (combinedDeck.length + 1));
+          combinedDeck.splice(randomIndex, 0, card); // Inserts the card at that random position
+      });
+
+      // 3. Safety check: Filter duplicates and add missing cards just in case
+      const uniqueGatheredCards = _.uniqBy(combinedDeck, 'id');
       const fullDeck = createFreshDeck();
       const missingCards = fullDeck.filter(
          fullCard => !uniqueGatheredCards.some((gatheredCard: any) => gatheredCard.id === fullCard.id)
       );
-      // 4. Combine them securely: existing cards first, missing cards securely at the bottom
+
+      // 4. Combine them securely
       const finalCardsToShuffle = [...uniqueGatheredCards, ...missingCards];
-      // 5. Shuffle the recovered deck based on the slider factor
+
+      // 5. Finally, apply your Swap Shuffle based on the randomness slider
       const d = shuffleDeck(finalCardsToShuffle, currentFactor);
-      
+
       const nextDealer = (roomData.dealer_index || 0) + 1;
       const nextRound = (roomData.round_count || 1) + 1;
       
