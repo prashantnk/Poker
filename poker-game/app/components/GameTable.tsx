@@ -88,41 +88,43 @@ export default function GameTable({
     <div className="h-screen bg-[#1a2e22] flex flex-col items-center p-2 text-white overflow-hidden relative">
       <GameNotifications logs={logs} />
 
-      {/* --- MODALS --- */}
+     {/* --- MODALS --- */}
       {showWinnerModal && winners.length > 0 && (
         <div 
-          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setShowWinnerModal(false)}
         >
            <div className="relative bg-[#1a2e22] p-6 md:p-8 rounded-[2rem] border-4 border-yellow-500/80 shadow-[0_0_50px_rgba(234,179,8,0.3)] flex flex-col items-center text-center min-w-[320px] max-w-2xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => setShowWinnerModal(false)} className="absolute top-4 right-6 text-white/30 hover:text-white text-2xl transition-colors">✕</button>
               
-              <div className="text-yellow-400 font-black tracking-widest text-xl uppercase mb-6 border-b-2 border-white/10 pb-4 w-full">Showdown Winner</div>
-              
-              <div className="flex flex-col gap-6 w-full max-h-[70vh] overflow-y-auto no-scrollbar">
-                {winners.map((w: any, i: number) => (
-                  <div key={i} className="flex flex-col items-center bg-black/40 p-4 rounded-2xl border border-white/10 w-full">
-                     <div className="text-3xl md:text-5xl font-black text-white mb-1 drop-shadow-md">{w.name}</div>
-                     <div className="text-emerald-400 font-bold text-xs md:text-sm uppercase tracking-widest mb-4">{w.desc}</div>
-                     
-                     {/* --- THE 5 WINNING CARDS VISUAL --- */}
-                     {w.cards && (
-                       <div className="flex gap-2 md:gap-3">
-                         {w.cards.map((c: any, j: number) => (
-                           <div key={j} className={`bg-white rounded-lg md:rounded-xl flex flex-col items-center justify-center w-12 h-16 md:w-16 md:h-24 shadow-xl border-2 border-gray-300 transform transition-transform hover:scale-110 ${c.color}`}>
-                             <span className="text-lg md:text-2xl font-black leading-none">{c.value}</span>
-                             <span className="text-xl md:text-3xl leading-none mt-1">{c.suit}</span>
-                           </div>
-                         ))}
-                       </div>
-                     )}
+              <div className="text-yellow-400 font-black tracking-widest text-xl uppercase mb-4 w-full">
+                 {winners.length > 1 ? "Split Pot" : "Winner"}
+              </div>
 
+              {/* --- THE WINNING 5 CARDS (SHOWN ONLY ONCE) --- */}
+              {winners[0]?.cards && (
+                 <div className="flex gap-2 md:gap-3 mb-6 pb-6 border-b-2 border-white/10 w-full justify-center">
+                   {winners[0].cards.map((c: any, j: number) => (
+                     <div key={j} className={`bg-white rounded-lg md:rounded-xl flex flex-col items-center justify-center w-12 h-16 md:w-16 md:h-24 shadow-xl border-2 border-gray-300 transform-gpu hover:scale-110 transition-transform ${c.color}`}>
+                       <span className="text-lg md:text-2xl font-black leading-none">{c.value}</span>
+                       <span className="text-xl md:text-3xl leading-none mt-1">{c.suit}</span>
+                     </div>
+                   ))}
+                 </div>
+              )}
+              
+              {/* --- THE WINNER(S) LIST --- */}
+              <div className="flex flex-col gap-3 w-full max-h-[50vh] overflow-y-auto no-scrollbar">
+                {winners.map((w: any, i: number) => (
+                  <div key={i} className="flex flex-col items-center bg-black/40 p-4 rounded-2xl border border-white/5 w-full">
+                     <div className="text-3xl md:text-5xl font-black text-white drop-shadow-md mb-1">{w.name}</div>
+                     <div className="text-emerald-400 font-bold text-xs md:text-sm uppercase tracking-widest">{w.desc}</div>
                   </div>
                 ))}
               </div>
               
               <div className="mt-6 pt-4 w-full border-t border-white/10">
-                <button onClick={() => setShowWinnerModal(false)} className="text-xs text-gray-400 hover:text-white uppercase tracking-widest transition-colors">Tap anywhere to close</button>
+                <button onClick={() => setShowWinnerModal(false)} className="text-xs text-gray-500 hover:text-white uppercase tracking-widest transition-colors">Tap anywhere to close</button>
               </div>
            </div>
         </div>
