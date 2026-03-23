@@ -181,22 +181,85 @@ export default function GameTable({
          </div>
       </div>
       
-     {/* --- MIDDLE SECTION: TABLE & MINIMAL SIDEBAR --- */}
-      <div className="flex-none h-[35vh] md:h-[40vh] w-full flex flex-row gap-4 px-2 md:px-6 my-2 relative z-10">
-        
-        {/* The Poker Table */}
-        <div className="flex-1 relative h-full bg-[#254230] rounded-[40px] md:rounded-[100px] border-[12px] md:border-[20px] border-[#3e2c26] shadow-2xl flex items-center justify-center ring-4 ring-black/20 overflow-hidden transform-gpu">
-           <div className="flex gap-2 md:gap-6 px-4 md:px-12 h-[75%] w-full justify-center items-center">
-             {(roomData?.community_cards || []).map((c: CardType, i: number) => (
-                <div key={i} className="h-full w-auto max-w-[19%] aspect-[2.5/3.5] shadow-2xl transition-transform duration-300 hover:scale-105">
-                  <Card card={c} hidden={i >= showComm} size="md" />
+     {/* --- MAIN LAYOUT WRAPPER (Left: Game, Right: Sidebar) --- */}
+      <div className="flex-1 w-full flex flex-row gap-2 overflow-hidden mt-2 relative z-10">
+         
+         {/* LEFT COLUMN: Table, Controls, Grid */}
+         <div className="flex-1 flex flex-col overflow-hidden w-full">
+            
+            {/* --- MIDDLE SECTION: TABLE --- */}
+            <div className="flex-none h-[35vh] md:h-[40vh] w-full flex px-2 md:px-6 relative z-10">
+              {/* The Poker Table */}
+              <div className="flex-1 relative h-full bg-[#254230] rounded-[40px] md:rounded-[100px] border-[12px] md:border-[20px] border-[#3e2c26] shadow-2xl flex items-center justify-center ring-4 ring-black/20 overflow-hidden transform-gpu">
+                 <div className="flex gap-2 md:gap-6 px-4 md:px-12 h-[75%] w-full justify-center items-center">
+                   {(roomData?.community_cards || []).map((c: CardType, i: number) => (
+                      <div key={i} className="h-full w-auto max-w-[19%] aspect-[2.5/3.5] shadow-2xl transition-transform duration-300 hover:scale-105">
+                        <Card card={c} hidden={i >= showComm} size="md" />
+                      </div>
+                   ))}
+                 </div>
+              </div>
+            </div>
+            
+            {/* --- CONTROLS --- */}
+            <div className="flex-none py-2 flex flex-col items-center gap-2 z-30">
+              <button onClick={onNextStage} className="bg-yellow-500 active:bg-yellow-600 text-black px-12 md:px-20 py-3 md:py-4 rounded-full font-black text-xl md:text-2xl shadow-[0_0_30px_rgba(234,179,8,0.4)] transition-transform active:scale-95 border-4 border-yellow-600">
+                 {stage === 'showdown' ? 'NEW ROUND ↺' : stage === 'river' ? 'SHOWDOWN ➔' : 'DEAL ➔'}
+              </button>
+              {(stage === 'waiting' || stage === 'showdown') && (
+                <div className="flex items-center gap-4 bg-black/60 px-6 py-2 rounded-full border-2 border-white/10">
+                   <span className="text-[10px] text-gray-400 font-bold">RIGGED</span>
+                   <input type="range" min="0" max="100" step="10" value={shuffleFactor} onChange={(e) => onShuffleChange(parseInt(e.target.value))} className="w-32 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+                   <span className={`text-xs font-bold w-12 text-right ${shuffleFactor < 50 ? 'text-red-400' : 'text-emerald-400'}`}>{shuffleFactor}%</span>
                 </div>
-             ))}
-           </div>
-        </div>
+              )}
+            </div>
+            
+            {/* --- DETAILED PLAYER GRID --- */}
+            <div className="flex-1 w-full min-h-0 overflow-y-auto px-4 pb-4 mt-2">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3 md:gap-6 mx-auto w-full">
+                {sortedPlayers.map((p, i) => {
+                   const showCards = isShowdown && p.is_revealed;
+                   const isActive = p.status !== 'folded';
+                   const isWinner = winners.some(w => w.id === p.id);
+                   const isStarter = p.name === starterName;
+                   
+                   return (
+                     <div key={p.id} onClick={() => setZoomedPlayer(p)} className={`flex flex-col items-center p-2 md:p-3 rounded-[2rem] border-[6px] transition-all duration-300 relative shadow-xl min-h-[200px] md:min-h-[250px] group cursor-zoom-in transform-gpu ${isWinner ? 'bg-yellow-900/80 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.5)] scale-105 z-20' : !isActive ? 'bg-gray-900/60 border-gray-700 opacity-60' : 'bg-black/70 border-emerald-500/60 hover:border-yellow-400 hover:bg-black/90'}`}>
+                       <div className="font-black text-lg md:text-xl truncate mb-1 text-white drop-shadow-lg tracking-wide w-full text-center shrink-0 flex items-center gap-2 justify-center">
+                          {p.name}
+                          {isStarter && <span className="text-blue-400 text-[10px] md:text-xs bg-blue-900/50 border border-blue-500 rounded-full px-1.5 py-0.5">D</span>}
+                       </div>
+                       <div className="flex-1 w-full flex justify-center items-center gap-1 md:gap-2 relative">
+                          {p.hand?.length > 0 ? (
+                            <>
+                              <div className={`w-[45%] aspect-[2.5/3.5] transition-transform duration-500 ${showCards ? 'z-20' : 'z-10'}`}>
+                                 <Card card={p.hand[0]} hidden={!showCards} size="md" />
+                              </div>
+                              <div className={`w-[45%] aspect-[2.5/3.5] transition-transform duration-500 ${showCards ? 'z-20' : 'z-10'}`}>
+                                 <Card card={p.hand[1]} hidden={!showCards} size="md" />
+                              </div>
+                            </>
+                          ) : <span className="text-sm font-bold opacity-30 tracking-widest">EMPTY</span>}
+                       </div>
+                       {isWinner ? (
+                          <div className="mt-2 px-3 py-1 rounded-full font-black text-xs md:text-sm uppercase tracking-widest border-2 bg-yellow-500 text-black animate-bounce">WINNER</div>
+                       ) : (
+                          <div className={`mt-2 px-3 py-1 rounded-full font-black text-[10px] md:text-xs uppercase tracking-widest border-2 shrink-0 ${!isActive ? 'bg-red-900/50 border-red-500 text-red-300' : 'bg-emerald-900/50 border-emerald-500 text-emerald-300'}`}>
+                            {p.status === 'folded' ? 'FOLDED' : (p.is_revealed ? 'SHOWING' : 'ACTIVE')}
+                          </div>
+                       )}
+                       {p.is_revealed && <div className="absolute top-3 right-3 text-xl animate-pulse">👁</div>}
+                     </div>
+                   )
+                })}
+              </div>
+            </div>
 
-        {/* The Minimal Player Sidebar (Hidden on tiny mobile screens, visible on Tablets/TVs) */}
-        <div className="hidden md:flex w-64 lg:w-72 bg-black/40 border border-white/5 rounded-[2rem] p-4 flex-col gap-2 backdrop-blur-md shadow-xl">
+         </div>
+
+         {/* RIGHT COLUMN: Minimal Player Sidebar */}
+         <div className="hidden md:flex w-64 lg:w-72 max-h-full bg-black/40 border border-white/5 rounded-[2rem] p-4 flex-col gap-2 backdrop-blur-md shadow-xl mr-2 lg:mr-4 z-20">
            <div className="flex items-center justify-between border-b border-white/10 pb-2 mb-1 shrink-0 px-2">
              <h3 className="text-emerald-400 font-bold text-xs tracking-widest uppercase">Players</h3>
              <span className="text-xs font-mono text-gray-500">{players.length}</span>
@@ -208,11 +271,10 @@ export default function GameTable({
                   const isWinner = winners.some(w => w.id === p.id);
                   const isStarter = p.name === starterName;
                   
-                  // Status Dot Logic
-                  let dotClass = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"; // Active
-                  if (!isActive) dotClass = "bg-red-500 opacity-50"; // Folded
-                  if (isWinner) dotClass = "bg-yellow-400 animate-pulse"; // Winner
-                  else if (p.is_revealed) dotClass = "bg-blue-400 animate-pulse"; // Revealed
+                  let dotClass = "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]";
+                  if (!isActive) dotClass = "bg-red-500 opacity-50";
+                  if (isWinner) dotClass = "bg-yellow-400 animate-pulse";
+                  else if (p.is_revealed) dotClass = "bg-blue-400 animate-pulse";
 
                   return (
                      <div key={p.id} className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${!isActive ? 'opacity-50 bg-red-900/10 border-red-900/30' : isWinner ? 'bg-yellow-900/30 border-yellow-500/50' : 'bg-white/5 border-white/5'}`}>
@@ -229,61 +291,8 @@ export default function GameTable({
                   )
               })}
            </div>
-        </div>
+         </div>
 
-      </div>
-      
-      <div className="flex-none py-2 flex flex-col items-center gap-2 z-30">
-        <button onClick={onNextStage} className="bg-yellow-500 active:bg-yellow-600 text-black px-12 md:px-20 py-3 md:py-4 rounded-full font-black text-xl md:text-2xl shadow-[0_0_30px_rgba(234,179,8,0.4)] transition-transform active:scale-95 border-4 border-yellow-600">
-           {stage === 'showdown' ? 'NEW ROUND ↺' : stage === 'river' ? 'SHOWDOWN ➔' : 'DEAL ➔'}
-        </button>
-        {(stage === 'waiting' || stage === 'showdown') && (
-          <div className="flex items-center gap-4 bg-black/60 px-6 py-2 rounded-full border-2 border-white/10">
-             <span className="text-[10px] text-gray-400 font-bold">RIGGED</span>
-             <input type="range" min="0" max="100" step="10" value={shuffleFactor} onChange={(e) => onShuffleChange(parseInt(e.target.value))} className="w-32 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-             <span className={`text-xs font-bold w-12 text-right ${shuffleFactor < 50 ? 'text-red-400' : 'text-emerald-400'}`}>{shuffleFactor}%</span>
-          </div>
-        )}
-      </div>
-      
-      <div className="flex-1 w-full min-h-0 overflow-y-auto px-4 pb-4 mt-2">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3 md:gap-6 mx-auto w-full">
-          {sortedPlayers.map((p, i) => {
-             const showCards = isShowdown && p.is_revealed;
-             const isActive = p.status !== 'folded';
-             const isWinner = winners.some(w => w.id === p.id);
-             const isStarter = p.name === starterName;
-             
-             return (
-               <div key={p.id} onClick={() => setZoomedPlayer(p)} className={`flex flex-col items-center p-2 md:p-3 rounded-[2rem] border-[6px] transition-all duration-300 relative shadow-xl min-h-[200px] md:min-h-[250px] group cursor-zoom-in transform-gpu ${isWinner ? 'bg-yellow-900/80 border-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.5)] scale-105 z-20' : !isActive ? 'bg-gray-900/60 border-gray-700 opacity-60' : 'bg-black/70 border-emerald-500/60 hover:border-yellow-400 hover:bg-black/90'}`}>
-                 <div className="font-black text-lg md:text-xl truncate mb-1 text-white drop-shadow-lg tracking-wide w-full text-center shrink-0 flex items-center gap-2 justify-center">
-                    {p.name}
-                    {isStarter && <span className="text-blue-400 text-xs md:text-sm bg-blue-900/50 border border-blue-500 rounded-full px-2 py-0.5">D</span>}
-                 </div>
-                 <div className="flex-1 w-full flex justify-center items-center gap-2 relative">
-                    {p.hand?.length > 0 ? (
-                      <>
-                        <div className={`w-[45%] aspect-[2.5/3.5] transition-transform duration-500 ${showCards ? 'z-20' : 'z-10'}`}>
-                           <Card card={p.hand[0]} hidden={!showCards} size="md" />
-                        </div>
-                        <div className={`w-[45%] aspect-[2.5/3.5] transition-transform duration-500 ${showCards ? 'z-20' : 'z-10'}`}>
-                           <Card card={p.hand[1]} hidden={!showCards} size="md" />
-                        </div>
-                      </>
-                    ) : <span className="text-base font-bold opacity-30 tracking-widest">EMPTY</span>}
-                 </div>
-                 {isWinner ? (
-                    <div className="mt-2 px-4 py-1.5 rounded-full font-black text-sm uppercase tracking-widest border-2 bg-yellow-500 text-black animate-bounce">WINNER</div>
-                 ) : (
-                    <div className={`mt-2 px-3 py-1.5 rounded-full font-black text-xs md:text-sm uppercase tracking-widest border-2 shrink-0 ${!isActive ? 'bg-red-900/50 border-red-500 text-red-300' : 'bg-emerald-900/50 border-emerald-500 text-emerald-300'}`}>
-                      {p.status === 'folded' ? 'FOLDED' : (p.is_revealed ? 'SHOWING' : 'ACTIVE')}
-                    </div>
-                 )}
-                 {p.is_revealed && <div className="absolute top-3 right-3 text-2xl animate-pulse">👁</div>}
-               </div>
-             )
-          })}
-        </div>
       </div>
 
       <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2">
