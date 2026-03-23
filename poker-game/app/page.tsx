@@ -215,7 +215,7 @@ export default function PokerPage() {
     return () => { supabase.removeChannel(ch); };
   }, [view, roomCode]);
 
-  // --- WINNER LOGIC ---
+// --- WINNER LOGIC ---
   const calculateWinnerData = (communityCards: any[], currentPlayers: any[]) => {
     try {
       if (!communityCards || communityCards.length < 5) return [];
@@ -235,11 +235,29 @@ export default function PokerPage() {
       if (solverHands.length === 0) return [];
 
       const winningHands = Hand.winners(solverHands);
-      return winningHands.map((h: any) => ({
-         id: h.player.id,
-         name: h.player.name,
-         desc: h.descr
-      }));
+      const isSplitPot = winningHands.length > 1;
+      
+      // Helper map to convert solver suits back to UI symbols
+      const suitIconMap: Record<string, string> = { 's': '♠', 'h': '♥', 'c': '♣', 'd': '♦' };
+
+      return winningHands.map((h: any) => {
+         const splitPrefix = isSplitPot ? "SPLIT POT (TIE) - " : "";
+         
+         // Extract the exact 5 playing cards as structured objects
+         const winningCards = h.cards.map((c: any) => {
+            const val = c.value === 'T' ? '10' : c.value;
+            const suit = suitIconMap[c.suit] || c.suit;
+            const color = (suit === '♥' || suit === '♦') ? 'text-red-600' : 'text-black';
+            return { value: val, suit, color };
+         });
+
+         return {
+            id: h.player.id,
+            name: h.player.name,
+            desc: `${splitPrefix}${h.descr}`, // Just the clean description
+            cards: winningCards               // The 5 visual cards
+         };
+      });
     } catch (err) {
       console.error("Winner Calc Error:", err);
       return [];
