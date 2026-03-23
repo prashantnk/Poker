@@ -241,20 +241,21 @@ export default function PokerPage() {
       const suitIconMap: Record<string, string> = { 's': '♠', 'h': '♥', 'c': '♣', 'd': '♦' };
 
       return winningHands.map((h: any) => {
-         // Extract the exact 5 cards that make up the final winning hand
-         const playingCards = h.cards.map((c: any) => {
-            const val = c.value === 'T' ? '10' : c.value;
-            return `${val}${suitIconMap[c.suit] || c.suit}`;
-         }).join(' ');
-
-         // Build a highly descriptive string
          const splitPrefix = isSplitPot ? "SPLIT POT (TIE) - " : "";
-         const detailedDesc = `${splitPrefix}${h.descr} • PLAYING: [ ${playingCards} ]`;
+         
+         // Extract the exact 5 playing cards as structured objects
+         const winningCards = h.cards.map((c: any) => {
+            const val = c.value === 'T' ? '10' : c.value;
+            const suit = suitIconMap[c.suit] || c.suit;
+            const color = (suit === '♥' || suit === '♦') ? 'text-red-600' : 'text-black';
+            return { value: val, suit, color };
+         });
 
          return {
             id: h.player.id,
             name: h.player.name,
-            desc: detailedDesc
+            desc: `${splitPrefix}${h.descr}`, // Just the clean description
+            cards: winningCards               // The 5 visual cards
          };
       });
     } catch (err) {
