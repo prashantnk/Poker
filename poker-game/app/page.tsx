@@ -339,7 +339,7 @@ export default function PokerPage() {
         
         // 1. Initial Shuffles based on slider
         // Multiply by 3 to ensure deep randomization when using chunk-shuffles
-        const totalShuffles = shuffleFactor * 3; 
+        const totalShuffles = shuffleFactor * 10; 
         
         for(let i = 0; i < totalShuffles; i++){
             singleStripShuffle(deck);
