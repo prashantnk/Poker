@@ -181,11 +181,13 @@ export default function GameTable({
          </div>
       </div>
       
-     {/* --- MAIN LAYOUT WRAPPER (Left: Game, Right: Sidebar) --- */}
-      <div className="flex-1 w-full flex flex-row gap-2 overflow-hidden mt-2 relative z-10">
+      {/* --- MAIN LAYOUT WRAPPER (Left: Game, Right: Sidebar) --- */}
+      {/* ADDED min-h-0 HERE */}
+      <div className="flex-1 min-h-0 w-full flex flex-row gap-2 overflow-hidden mt-2 relative z-10">
          
          {/* LEFT COLUMN: Table, Controls, Grid */}
-         <div className="flex-1 flex flex-col overflow-hidden w-full">
+         {/* ADDED min-h-0 HERE */}
+         <div className="flex-1 min-h-0 flex flex-col overflow-hidden w-full">
             
             {/* --- MIDDLE SECTION: TABLE --- */}
             <div className="flex-none h-[35vh] md:h-[40vh] w-full flex px-2 md:px-6 relative z-10">
