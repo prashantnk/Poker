@@ -13,6 +13,7 @@ type PlayerViewProps = {
 };
 
 export default function PlayerView({ roomCode, me, stage, roundCount, onFold, onToggleReveal, onLeave, onRefresh }: PlayerViewProps) {
+  const [showFoldConfirm, setShowFoldConfirm] = useState(false);
   const [isPeeking, setIsPeeking] = useState(false);
   const [forceShow, setForceShow] = useState(false);
   
@@ -140,10 +141,43 @@ export default function PlayerView({ roomCode, me, stage, roundCount, onFold, on
               </button>
            </div>
            {!isFolded && hasCards && (
-              <button onClick={onFold} className="w-full py-4 rounded-xl border-2 border-red-600 text-red-500 font-bold text-xl active:bg-red-900/20 mt-2">FOLD HAND</button>
+              <button onClick={() => setShowFoldConfirm(true)} className="w-full py-4 rounded-xl border-2 border-red-600 text-red-500 font-bold text-xl active:bg-red-900/20 mt-2">
+                FOLD HAND
+              </button>
            )}
         </div>
       </div>
+
+      {/* --- FOLD CONFIRMATION MODAL --- */}
+      {showFoldConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md px-4 animate-in fade-in duration-200">
+          <div className="bg-[#1a2e22] border-2 border-red-500/50 p-6 rounded-[2rem] w-full max-w-sm flex flex-col items-center text-center shadow-2xl transform-gpu">
+            <div className="text-red-500 text-6xl mb-4 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]">⚠️</div>
+            <h2 className="text-white text-2xl font-black uppercase tracking-wide mb-2">Are you sure?</h2>
+            <p className="text-gray-400 text-sm mb-8 px-2">
+              Folding is irreversible. You will sit out and lose any chance to win this round.
+            </p>
+            <div className="flex w-full gap-4">
+              <button 
+                onClick={() => setShowFoldConfirm(false)} 
+                className="flex-1 bg-white/10 hover:bg-white/20 active:bg-white/5 text-white py-3 rounded-xl font-bold uppercase tracking-wide transition-colors border border-white/10"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  setShowFoldConfirm(false);
+                  onFold();
+                }} 
+                className="flex-1 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white py-3 rounded-xl font-black uppercase tracking-widest shadow-[0_0_15px_rgba(220,38,38,0.5)] transition-all active:scale-95 border border-red-500"
+              >
+                Fold
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
