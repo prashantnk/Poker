@@ -55,6 +55,25 @@ const shuffleDeckFisherYates = (existingDeck: any[], randomness = 100) => {
   return deck;
 };
 
+// Simulates physical Strips (small chunks) and Cuts (large chunks)
+const singleStripShuffle = (deck: any[]) => {
+  if (deck.length < 2) return deck; // Safety
+
+  // Take between 2 and 26 cards (up to exactly half the deck)
+  // Math.random() * 25 gives 0-24. Plus 2 gives a range of 2 to 26.
+  const len = Math.floor(Math.random() * 25) + 2; 
+  
+  // Ensure we don't try to start pulling from out of bounds
+  const maxStart = deck.length - len;
+  const startIdx = Math.floor(Math.random() * (maxStart + 1));
+  
+  // Cut the chunk out of the middle
+  const chunk = deck.splice(startIdx, len);
+  
+  // Throw it on the top (the end of the array)
+  deck.push(...chunk);
+};
+
 // Converter: {value: '10', suit: '♠'} -> "Ts"
 const toSolverCard = (card: any) => {
   if (!card) return null;
@@ -239,8 +258,8 @@ export default function PokerPage() {
     const { error } = await supabase.from('rooms').insert({
       id: code, 
       stage: 'waiting', 
-      community_cards: deck.slice(0, 5), 
-      deck: deck.slice(5), 
+      community_cards: [], // Start empty. Board is dealt at Preflop!
+      deck: deck, // Keep all 52 cards
       shuffle_factor: 100, 
       qr_url: qrUrl,
       winners: [],
@@ -313,42 +332,63 @@ export default function PokerPage() {
       let updates: any = { stage: next };
 
       if(next === 'preflop') {
-        const deck = [...roomData.deck];
+        let deck = [...roomData.deck];
         const active = players.filter(p => p.status !== 'folded');
+        const numPlayers = active.length;
+        const shuffleFactor = roomData.shuffle_factor ?? 100;
         
-        // --- NEW DEALING LOGIC ---
+        // 1. Initial Shuffles based on slider
+        // Multiply by 3 to ensure deep randomization when using chunk-shuffles
+        const totalShuffles = shuffleFactor * 10; 
         
-        // 1. Pull the top cards needed for this round (e.g. 4 players = 8 cards)
-        // If rigged, these are the Aces, Kings, Queens...
-        const cardsNeeded = active.length * 2;
-        const roundCards: any[] = [];
-        
-        for (let i = 0; i < cardsNeeded; i++) {
-            if (deck.length > 0) roundCards.push(deck.pop());
+        for(let i = 0; i < totalShuffles; i++){
+            singleStripShuffle(deck);
         }
 
-        // 2. Shuffle ONLY these specific cards
-        // This ensures the "Good Cards" are distributed randomly among players
-        // instead of Player 1 always getting the best ones.
-        for (let i = roundCards.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [roundCards[i], roundCards[j]] = [roundCards[j], roundCards[i]];
+        // 2. Deal to players circularly
+        const cardsNeeded = numPlayers * 2;
+        const playerHandsCards: any[] = [];
+        
+        if (cardsNeeded > 0 && deck.length >= cardsNeeded) {
+            // Pick a random starting index
+            const startIdx = Math.floor(Math.random() * deck.length);
+            let indicesToRemove = [];
+            
+            // Collect cards in a circular fashion
+            for(let i = 0; i < cardsNeeded; i++) {
+                const drawIdx = (startIdx + i) % deck.length;
+                indicesToRemove.push(drawIdx);
+                playerHandsCards.push(deck[drawIdx]);
+            }
+            
+            // Sort indices descending so we can safely splice them out of the deck
+            indicesToRemove.sort((a,b) => b - a);
+            indicesToRemove.forEach(idx => deck.splice(idx, 1));
         }
 
-        // 3. Deal them out
-        const pUpdates = active.map(p => {
-             // Give 2 cards to each player from the shuffled "Good Pile"
-             const hand = [roundCards.pop(), roundCards.pop()];
+        // 3. Deal community cards (Shuffle once -> Draw one -> Repeat 5 times)
+        const communityCards: any[] = [];
+        for(let i = 0; i < 5; i++) {
+            singleStripShuffle(deck);
+            if (deck.length > 0) communityCards.push(deck.pop());
+        }
+
+        // 4. Distribute to players (Dealer style: 1st card to everyone, then 2nd card to everyone)
+        const pUpdates = active.map((p, index) => {
+             const hand = [
+                 playerHandsCards[index], 
+                 playerHandsCards[index + numPlayers]
+             ].filter(c => c); // safety filter
              return supabase.from('players').update({ hand }).eq('id', p.id);
         });
         
         updates.deck = deck;
+        updates.community_cards = communityCards;
         updates.winners = []; 
         
         await Promise.all(pUpdates);
       } 
       else if (next === 'showdown') {
-        // Calculate and Save Winners
         const wData = calculateWinnerData(roomData.community_cards, players);
         updates.winners = wData;
       }
@@ -356,48 +396,38 @@ export default function PokerPage() {
       await supabase.from('rooms').update(updates).eq('id', roomCode);
 
     } else {
-      // --- NEW ROUND (REFACTOR: Randomly Insert Muck, Then Swap-Shuffle) ---
-      const currentFactor = roomData.shuffle_factor ?? 100;
-      
-      // 1. Separate unplayed cards and played cards
+      // --- NEW ROUND (Gather Muck & Form Continuous Shoe) ---
       const unplayedCards = [...(roomData.deck || [])];
       const playedCards: any[] = [...(roomData.community_cards || [])];
       
       players.forEach(p => {
-         if (p.hand && p.hand.length > 0) {
-            playedCards.push(...p.hand);
-         }
+         if (p.hand && p.hand.length > 0) playedCards.push(...p.hand);
       });
 
-      // 2. Randomly insert the played cards back into the unplayed deck
-      // This spreads out the high cards (Aces/Kings) so they don't clump at the top or bottom
+      // Randomly insert the muck into the unplayed shoe
       let combinedDeck = [...unplayedCards];
       playedCards.forEach(card => {
-          // Pick a random index from 0 up to the current length of combinedDeck
+          if (!card) return;
           const randomIndex = Math.floor(Math.random() * (combinedDeck.length + 1));
-          combinedDeck.splice(randomIndex, 0, card); // Inserts the card at that random position
+          combinedDeck.splice(randomIndex, 0, card);
       });
 
-      // 3. Safety check: Filter duplicates and add missing cards just in case
-      const uniqueGatheredCards = _.uniqBy(combinedDeck, 'id');
+      // Safety check: Filter duplicates and append missing cards
+      const uniqueGatheredCards = _.uniqBy(combinedDeck, 'id').filter(c => c && c.id);
       const fullDeck = createFreshDeck();
       const missingCards = fullDeck.filter(
          fullCard => !uniqueGatheredCards.some((gatheredCard: any) => gatheredCard.id === fullCard.id)
       );
-
-      // 4. Combine them securely
-      const finalCardsToShuffle = [...uniqueGatheredCards, ...missingCards];
-
-      // 5. Finally, apply your Swap Shuffle based on the randomness slider
-      const d = shuffleDeck(finalCardsToShuffle, currentFactor);
+      const finalCardsToSave = [...uniqueGatheredCards, ...missingCards];
 
       const nextDealer = (roomData.dealer_index || 0) + 1;
       const nextRound = (roomData.round_count || 1) + 1;
       
+      // Save the continuous deck. We do NOT deal community cards until preflop.
       await supabase.from('rooms').update({ 
         stage: 'waiting', 
-        community_cards: d.slice(0,5), 
-        deck: d.slice(5),
+        community_cards: [], // Cleared for the new round
+        deck: finalCardsToSave,
         winners: [],
         dealer_index: nextDealer,
         round_count: nextRound
@@ -465,7 +495,12 @@ export default function PokerPage() {
       {view === 'table' && (
         <GameTable 
           roomCode={roomCode} 
-          roomData={roomData} 
+          roomData={{
+            ...roomData,
+            community_cards: (roomData?.community_cards && roomData.community_cards.length === 5)
+                ? roomData.community_cards
+                : [null, null, null, null, null]
+          }}
           players={players} 
           winners={winners} 
           onNextStage={handleNextStage} 
